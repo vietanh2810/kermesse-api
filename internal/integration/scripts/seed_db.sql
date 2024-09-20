@@ -1,0 +1,1 @@
+INSERT INTO "users" ("id", "email", "password", "created_at", "updated_at") VALUES(123, '123@test.com', '$2a$10$9J3sIOgWlMVvssEEmoUm.eBHKembea4CLBqwHfjln4vHfbKOOSdJK', '2024-01-31 15:26:31.804593+00', '2024-01-31 15:26:31.804593+00');

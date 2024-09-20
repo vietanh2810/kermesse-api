@@ -1,0 +1,128 @@
+definitions:
+  domain.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  request.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  request.SignupRequest:
+    properties:
+      confirm_password:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - confirm_password
+    - email
+    - password
+    type: object
+  response.Err:
+    properties:
+      error:
+        description: user-facing error message
+        type: string
+      error_code:
+        description: application-specific error code
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /auth/login:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Login a user
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Signup a new user
+      tags:
+      - auth
+  /users/{userID}:
+    get:
+      parameters:
+      - description: user ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Get a user
+      tags:
+      - users
+swagger: "2.0"

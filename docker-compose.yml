@@ -1,0 +1,48 @@
+version: "3.9"
+
+name: "gab"
+
+services:
+  api:
+    container_name: "gin-gorm-auth-jwt-api"
+    image: yizeng/gab:gin-gorm-auth-jwt
+    build:
+      args:
+        GO_VERSION: ${GO_VERSION}
+      dockerfile: Dockerfile
+      context: .
+      target: development
+    restart: always
+    env_file: .env
+    environment: # Overwrite some ENVs for Docker environment.
+      - POSTGRES_HOST=postgres
+    volumes:
+      - .:/project
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    container_name: "gin-gorm-auth-jwt-postgres"
+    image: "postgres:${POSTGRES_VERSION}-${POSTGRES_BASE_IMAGE}"
+    restart: always
+    command: -p ${POSTGRES_PORT}
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    environment:
+      - PGUSER=${POSTGRES_USER} # To avoid error: FATAL:  role "root" does not exist
+      - PGDATABASE=${POSTGRES_DB}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./scripts/postgres/:/docker-entrypoint-initdb.d/
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -p ${POSTGRES_PORT}'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
