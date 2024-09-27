@@ -14,6 +14,7 @@ var (
 
 type UserRepository interface {
 	FindByID(ctx context.Context, id uint) (domain.User, error)
+	CreateStudent(ctx context.Context, student domain.Student) (domain.Student, error)
 }
 
 type UserService struct {
