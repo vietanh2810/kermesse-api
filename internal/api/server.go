@@ -34,7 +34,8 @@ func NewServer(conf *config.AppConfig, db *gorm.DB) *Server {
 
 	authHandler := s.initAuthHandler(db)
 	userHandler := s.initUserHandler(db)
-	s.MountHandlers(authHandler, userHandler)
+	kermesseHandler := s.initKermesseHandler(db)
+	s.MountHandlers(authHandler, userHandler, kermesseHandler)
 
 	return s
 }
@@ -57,6 +58,18 @@ func (s *Server) initUserHandler(db *gorm.DB) *v1.UserHandler {
 	return handler
 }
 
+func (s *Server) initKermesseHandler(db *gorm.DB) *v1.KermesseHandler {
+
+	kermesseDAO := dao.NewKermesseDao(db)
+	repo := repository.NewKermesseRepository(kermesseDAO)
+	userRepo := repository.NewUserRepository(dao.NewUserDAO(db))
+	svc := service.NewKermesseService(repo, userRepo)
+	uSvc := service.NewUserService(repository.NewUserRepository(dao.NewUserDAO(db)))
+	handler := v1.NewKermesseHandler(svc, uSvc)
+
+	return handler
+}
+
 func (s *Server) MountMiddlewares() {
 	// Logger and Recovery are needed unless we use gin.Default().
 	s.Router.Use(gin.Logger())
@@ -65,7 +78,7 @@ func (s *Server) MountMiddlewares() {
 	s.Router.Use(middleware.ConfigCORS(s.Config.API.AllowedCORSDomains))
 }
 
-func (s *Server) MountHandlers(authHandler *v1.AuthHandler, userHandler *v1.UserHandler) {
+func (s *Server) MountHandlers(authHandler *v1.AuthHandler, userHandler *v1.UserHandler, kermesseHandler *v1.KermesseHandler) {
 	const basePath = "/api/v1"
 
 	auth := s.Router.Group(basePath)
@@ -77,6 +90,22 @@ func (s *Server) MountHandlers(authHandler *v1.AuthHandler, userHandler *v1.User
 	users := s.Router.Group(basePath, middleware.NewAuthenticator(s.Config.API.JWTSigningKey).VerifyJWT())
 	{
 		users.GET("/users/:userID", userHandler.HandleGetUser)
+	}
+
+	kermesses := s.Router.Group(basePath, middleware.NewAuthenticator(s.Config.API.JWTSigningKey).VerifyJWT())
+	{
+		kermesses.GET("/kermesses/", kermesseHandler.HandleGetKermesses)
+		kermesses.GET("/kermesses/:kermesseID/participate", kermesseHandler.HandleKermesseParticipation)
+		kermesses.GET("/kermesses/:kermesseID/stand", kermesseHandler.HandleGetStands)
+		kermesses.GET("/kermesses/:kermesseID/transaction/:transactionID/validate", kermesseHandler.HandleValidateTokenTransaction)
+		kermesses.GET("/kermesses/:kermesseID/children_transactions", kermesseHandler.HandleGetChildrenTransactions)
+		kermesses.POST("/kermesses/", kermesseHandler.HandleCreateKermesse)
+		kermesses.POST("/kermesses/:kermesseID/stand", kermesseHandler.HandleCreateStand)
+		kermesses.POST("/kermesses/:kermesseID/token/purchase", kermesseHandler.HandleTokenPurchase)
+		kermesses.POST("/kermesses/:kermesseID/token/transferToChild", kermesseHandler.HandleParentSendTokensToChild)
+		kermesses.POST("/kermesses/:kermesseID/stand/:standID/purchase", kermesseHandler.HandleStandPurchase)
+		kermesses.POST("/kermesses/:kermesseID/stand/:standID/stock/update", kermesseHandler.HandleUpdateStock)
+		kermesses.POST("/kermesses/:kermesseID/transaction/:transactionID", kermesseHandler.HandleValidatePurchase)
 	}
 
 	s.Router.GET("/", v1.HandleHealthcheck)

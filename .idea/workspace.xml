@@ -11,11 +11,51 @@
       <change afterPath="$PROJECT_DIR$/../../flutter/tp_flutter/lib/mode/blocs/mode_bloc.dart" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../../flutter/tp_flutter/lib/mode/blocs/mode_event.dart" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../../flutter/tp_flutter/lib/mode/blocs/mode_state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/authentication/authentication_bloc.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/authentication/authentication_event.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/authentication/authentication_state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/kermesses/kermesses_bloc.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/kermesses/kermesses_event.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/kermesses/kermesses_state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/login/login_bloc.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/login/login_event.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/login/login_state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/logout/logout_bloc.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/logout/logout_event.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/logout/logout_state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/signup/signup_bloc.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/signup/signup_event.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/signup/signup_state.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/docs.go" beforeDir="false" afterPath="$PROJECT_DIR$/docs/docs.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/docs/swagger.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/swagger.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/docs/swagger.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/auth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/request/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/request/auth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/user.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/api/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/server.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/domain/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/user.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/repository/dao/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/dao/kermesse.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/repository/dao/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/dao/user.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/repository/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/kermesse.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/repository/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/user.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/service/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/service/auth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/service/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/service/user.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tmp/build-errors.log" beforeDir="false" afterPath="$PROJECT_DIR$/tmp/build-errors.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tmp/main" beforeDir="false" afterPath="$PROJECT_DIR$/tmp/main" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
   </component>
   <component name="GOROOT" url="file://$USER_HOME$/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.22.3.darwin-arm64" />
   <component name="Git.Settings">
@@ -24,9 +64,9 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 2
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="2mLrdMDvksnvSAXkYCIPstAHtTs" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -34,6 +74,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
     "Makefile Target.all.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -41,13 +82,19 @@
     "RunOnceActivity.go.migrated.go.modules.settings": "true",
     "RunOnceActivity.go.modules.automatic.dependencies.download": "true",
     "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "dev",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
     "last_opened_file_path": "/Users/bvietanh2810/ESGI/ratrap/kermesse",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm"
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.github.copilot.settings.ApplicationConfigurable"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "postgresql"
+    ]
   }
 }]]></component>
   <component name="RunManager">
@@ -66,7 +113,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-gosdk-2946fb9b3188-155fe4b6e3a0-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-233.14475.38" />
+        <option value="bundled-gosdk-2946fb9b3188-155fe4b6e3a0-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-233.15619.13" />
       </set>
     </attachedChunks>
   </component>
@@ -76,5 +123,16 @@
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/internal/domain/user.go</url>
+          <line>2</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

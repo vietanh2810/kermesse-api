@@ -20,11 +20,11 @@ var (
 )
 
 type User struct {
-	ID       uint   `gorm:"primaryKey"`
-	Email    string `gorm:"unique;not null"`
-	Password string `gorm:"not null"`
-	Name     string `gorm:"not null"`
-
+	ID        uint      `gorm:"primaryKey"`
+	Email     string    `gorm:"unique;not null"`
+	Password  string    `gorm:"not null"`
+	Name      string    `gorm:"not null"`
+	Role      string    `gorm:"not null"`
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 }
@@ -158,6 +158,39 @@ func (d *UserDAO) UpdateStudent(ctx context.Context, user User, student Student)
 	}
 
 	return updatedStudent, nil
+}
+
+func (d *UserDAO) UpdateParent(ctx context.Context, user User, parent Parent) (Parent, error) {
+	tx := d.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return Parent{}, tx.Error
+	}
+
+	// Update User first
+	if err := tx.Model(&User{}).Where("id = ?", parent.UserID).Updates(user).Error; err != nil {
+		tx.Rollback()
+		return Parent{}, err
+	}
+
+	// Now update the Parent
+	if err := tx.Model(&Parent{}).Where("user_id = ?", parent.UserID).Updates(parent).Error; err != nil {
+		tx.Rollback()
+		return Parent{}, err
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		return Parent{}, err
+	}
+
+	// Fetch the updated parent record including the associated user
+	var updatedParent Parent
+	if err := d.db.WithContext(ctx).Preload("User").First(&updatedParent, parent.UserID).Error; err != nil {
+		return Parent{}, err
+	}
+
+	return updatedParent, nil
 }
 
 func (d *UserDAO) InsertParent(ctx context.Context, user User, parent Parent) (Parent, error) {
@@ -384,4 +417,56 @@ func (d *UserDAO) FindStudentByEmail(ctx context.Context, email string) (Student
 	}
 
 	return student, nil
+}
+
+func (d *UserDAO) FindStudentByUserID(ctx context.Context, id uint) (Student, error) {
+	var student Student
+	result := d.db.WithContext(ctx).
+		Where("user_id = ?", id).
+		Preload("User").
+		First(&student)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return Student{}, ErrStudentNotFound
+		}
+		return Student{}, fmt.Errorf("failed to find student: %w", result.Error)
+	}
+
+	return student, nil
+}
+
+func (d *UserDAO) FindParentByUserID(ctx context.Context, id uint) (Parent, error) {
+	var parent Parent
+	result := d.db.WithContext(ctx).
+		Where("user_id = ?", id).
+		Preload("User").
+		First(&parent)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return Parent{}, ErrUserNotFound
+		}
+		return Parent{}, fmt.Errorf("failed to find parent: %w", result.Error)
+	}
+
+	return parent, nil
+}
+
+func (d *UserDAO) FindStandHolderByUserID(ctx context.Context, id uint) (StandHolder, error) {
+	var standHolder StandHolder
+	result := d.db.WithContext(ctx).
+		Where("user_id = ?", id).
+		Preload("User").
+		Preload("Stand").
+		First(&standHolder)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return StandHolder{}, ErrUserNotFound
+		}
+		return StandHolder{}, fmt.Errorf("failed to find stand holder: %w", result.Error)
+	}
+
+	return standHolder, nil
 }

@@ -136,7 +136,7 @@ func (s *AuthService) SignupParent(ctx context.Context, parent domain.Parent, st
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return domain.User{}, ErrStudentNotFound
 		}
-		return domain.User{}, err
+		return domain.User{}, fmt.Errorf("s.repo.FindStudentByEmail -> %w", err)
 	}
 
 	hashedPassword, err := hashPassword(parent.User.Password)

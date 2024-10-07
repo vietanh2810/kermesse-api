@@ -1,4 +1,126 @@
 definitions:
+  domain.Kermesse:
+    properties:
+      createdAt:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      location:
+        type: string
+      name:
+        type: string
+      organizers:
+        items:
+          $ref: '#/definitions/domain.Organizer'
+        type: array
+      participants:
+        items:
+          $ref: '#/definitions/domain.User'
+        type: array
+      stands:
+        items:
+          $ref: '#/definitions/domain.Stand'
+        type: array
+      tokensSold:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  domain.Organizer:
+    properties:
+      organizedKermesses:
+        items:
+          $ref: '#/definitions/domain.Kermesse'
+        type: array
+      user:
+        $ref: '#/definitions/domain.User'
+      userID:
+        type: integer
+    type: object
+  domain.Stand:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      kermesse:
+        $ref: '#/definitions/domain.Kermesse'
+      kermesseID:
+        type: integer
+      name:
+        type: string
+      pointsGiven:
+        description: Only for activity stands
+        type: integer
+      stock:
+        items:
+          $ref: '#/definitions/domain.Stock'
+        type: array
+      tokensSpent:
+        type: integer
+      type:
+        description: '"food", "drink", or "activity"'
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  domain.Stock:
+    properties:
+      id:
+        type: integer
+      itemName:
+        type: string
+      quantity:
+        type: integer
+      standID:
+        type: integer
+      tokenCost:
+        description: Cost in tokens
+        type: integer
+    type: object
+  domain.TokenTransaction:
+    properties:
+      amount:
+        type: integer
+      createdAt:
+        type: string
+      fromID:
+        type: integer
+      fromType:
+        type: string
+      id:
+        type: integer
+      kermesseID:
+        type: integer
+      standID:
+        type: integer
+      status:
+        type: string
+      toID:
+        type: integer
+      toType:
+        type: string
+      type:
+        $ref: '#/definitions/domain.TokenTransactionType'
+      updatedAt:
+        type: string
+    type: object
+  domain.TokenTransactionType:
+    enum:
+    - Purchase
+    - Distribution
+    - Spend
+    type: string
+    x-enum-varnames:
+    - TokenPurchase
+    - TokenDistribution
+    - TokenSpend
   domain.User:
     properties:
       created_at:
@@ -7,7 +129,40 @@ definitions:
         type: string
       id:
         type: integer
+      name:
+        type: string
+      role:
+        type: string
       updated_at:
+        type: string
+    type: object
+  request.CreateKermesseRequest:
+    properties:
+      date:
+        format: DD/MM/YYYY
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+    required:
+    - date
+    - location
+    - name
+    type: object
+  request.CreateStandRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      stock:
+        items:
+          $ref: '#/definitions/request.StockItem'
+        type: array
+      type:
         type: string
     type: object
   request.LoginRequest:
@@ -20,18 +175,88 @@ definitions:
     - email
     - password
     type: object
+  request.SendTokensRequest:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      student_id:
+        type: integer
+    required:
+    - amount
+    - student_id
+    type: object
   request.SignupRequest:
     properties:
       confirm_password:
         type: string
       email:
         type: string
+      name:
+        type: string
       password:
         type: string
+      role:
+        type: string
+      student_email:
+        description: Parent-specific field
+        type: string
+    type: object
+  request.StandPurchaseRequest:
+    properties:
+      itemName:
+        type: string
+      quantity:
+        minimum: 1
+        type: integer
     required:
-    - confirm_password
-    - email
-    - password
+    - itemName
+    - quantity
+    type: object
+  request.StandTransactionApprovalRequest:
+    properties:
+      approved:
+        type: boolean
+      itemName:
+        type: string
+      quantity:
+        minimum: 1
+        type: integer
+      transaction_id:
+        type: integer
+    required:
+    - approved
+    - itemName
+    - quantity
+    - transaction_id
+    type: object
+  request.StockItem:
+    properties:
+      item_name:
+        type: string
+      quantity:
+        type: integer
+      token_cost:
+        type: integer
+    type: object
+  request.StockUpdateRequest:
+    properties:
+      item_name:
+        type: string
+      quantity:
+        type: integer
+      stock_id:
+        type: integer
+      token_cost:
+        type: integer
+    type: object
+  request.TokenPurchaseRequest:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+    required:
+    - amount
     type: object
   response.Err:
     properties:
@@ -43,7 +268,14 @@ definitions:
         type: integer
     type: object
 info:
-  contact: {}
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
 paths:
   /auth/login:
     post:
@@ -99,6 +331,494 @@ paths:
       summary: Signup a new user
       tags:
       - auth
+  /kermesses:
+    get:
+      description: Retrieves all kermesses associated with the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Kermesse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Get kermesses for user
+      tags:
+      - kermesses
+    post:
+      consumes:
+      - application/json
+      description: Creates a new kermesse event. Only users with the "organizer" role
+        can create kermesses.
+      parameters:
+      - description: Kermesse details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateKermesseRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Kermesse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Create a new kermesse
+      tags:
+      - kermesses
+  /kermesses/{kermesseID}/children_transactions:
+    get:
+      description: Retrieves all transactions made by the children of the authenticated
+        parent user for a specific kermesse. Only parents can access this endpoint.
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.TokenTransaction'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Get children's transactions for a kermesse
+      tags:
+      - kermesses
+      - transactions
+  /kermesses/{kermesseID}/participate:
+    get:
+      description: Adds the authenticated user as a participant to the specified kermesse
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Participate in a kermesse
+      tags:
+      - kermesses
+  /kermesses/{kermesseID}/stand:
+    get:
+      description: Retrieves all stands for a specific kermesse. The user must be
+        a participant, organizer, or stand holder associated with the kermesse to
+        access this information.
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Stand'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Get stands for a kermesse
+      tags:
+      - kermesses
+      - stands
+    post:
+      consumes:
+      - application/json
+      description: Creates a new stand for a specific kermesse. Only organizers, admins,
+        or stand holders can perform this action.
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Stand details
+        in: body
+        name: stand
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateStandRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Stand'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Create a new stand for a kermesse
+      tags:
+      - kermesses
+      - stands
+  /kermesses/{kermesseID}/stand/{standID}/purchase:
+    post:
+      consumes:
+      - application/json
+      description: Allows a user to make a purchase from a stand in a kermesse
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Stand ID
+        in: path
+        name: standID
+        required: true
+        type: integer
+      - description: Purchase request
+        in: body
+        name: purchaseRequest
+        required: true
+        schema:
+          $ref: '#/definitions/request.StandPurchaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Make a purchase from a stand
+      tags:
+      - kermesses
+  /kermesses/{kermesseID}/stand/{standID}/stock/update:
+    post:
+      consumes:
+      - application/json
+      description: Allows updating the stock for items in a stand
+      parameters:
+      - description: Stand ID
+        in: path
+        name: standID
+        required: true
+        type: integer
+      - description: Stock update request
+        in: body
+        name: stockUpdateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/request.StockUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Update stock for a stand
+      tags:
+      - kermesses
+  /kermesses/{kermesseID}/token/purchase:
+    post:
+      consumes:
+      - application/json
+      description: Allows a parent to purchase tokens for a specific kermesse. Only
+        parents who are participating in the kermesse can perform this action.
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Token purchase details
+        in: body
+        name: purchase
+        required: true
+        schema:
+          $ref: '#/definitions/request.TokenPurchaseRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.TokenTransaction'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Purchase tokens for a kermesse
+      tags:
+      - kermesses
+      - tokens
+  /kermesses/{kermesseID}/token/transferToChild:
+    post:
+      consumes:
+      - application/json
+      description: Allows a parent to send tokens to their child
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Send tokens request
+        in: body
+        name: sendTokensRequest
+        required: true
+        schema:
+          $ref: '#/definitions/request.SendTokensRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Send tokens from parent to child
+      tags:
+      - kermesses
+  /kermesses/{kermesseID}/transaction/{transactionID}:
+    post:
+      consumes:
+      - application/json
+      description: Allows a stand holder to validate a purchase transaction
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Transaction ID
+        in: path
+        name: transactionID
+        required: true
+        type: integer
+      - description: Approval request
+        in: body
+        name: approvalRequest
+        required: true
+        schema:
+          $ref: '#/definitions/request.StandTransactionApprovalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      summary: Validate a purchase transaction
+      tags:
+      - kermesses
+  /kermesses/{kermesseID}/transaction/{transactionID}/validate:
+    get:
+      description: Validates a token transaction for a specific kermesse. Only organizers
+        can perform this action.
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Transaction ID
+        in: path
+        name: transactionID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Validate a token transaction
+      tags:
+      - kermesses
+      - transactions
   /users/{userID}:
     get:
       parameters:
@@ -125,4 +845,10 @@ paths:
       summary: Get a user
       tags:
       - users
+securityDefinitions:
+  BearerAuth:
+    description: Bearer token
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
