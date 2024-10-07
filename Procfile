@@ -1,1 +1,1 @@
-web: bin/kermesse-back
+web: bin/auth-jwt
