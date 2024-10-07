@@ -15,8 +15,18 @@ import (
 func OpenPostgresWithURL(url string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gorm.Open -> %w", err)
 	}
+
+	// Create a logger (you might want to adjust the log level based on your needs)
+	gormLogger := createLogger("info")
+	db.Logger = gormLogger
+
+	// Initialize tables
+	if err = dao.InitTables(db); err != nil {
+		return nil, fmt.Errorf("dao.InitTables -> %w", err)
+	}
+
 	return db, nil
 }
 
