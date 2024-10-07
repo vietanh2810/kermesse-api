@@ -571,6 +571,238 @@
                 }
             }
         },
+        "/kermesses/{kermesseID}/stands/{standID}/attribute-points": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Allows a stand holder to attribute points to a student for participating in an activity",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "stands",
+                    "students"
+                ],
+                "summary": "Attribute points to a student",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Stand ID",
+                        "name": "standID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Points attribution request",
+                        "name": "attributePointsRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.AttributePointsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.PointsAttributionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/stands/{standID}/chat": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Establishes a WebSocket connection for real-time chat between organizers and stand holders",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "chat"
+                ],
+                "summary": "Establish WebSocket connection for chat",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Stand ID",
+                        "name": "standID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols to WebSocket",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/stands/{standID}/messages": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves chat messages for a specific kermesse and stand",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "chat"
+                ],
+                "summary": "Get chat messages",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Stand ID",
+                        "name": "standID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of messages to retrieve (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.ChatMessage"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
         "/kermesses/{kermesseID}/token/purchase": {
             "post": {
                 "security": [
@@ -767,75 +999,6 @@
                 }
             }
         },
-        "/kermesses/{kermesseID}/transaction/{transactionID}/validate": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Validates a token transaction for a specific kermesse. Only organizers can perform this action.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kermesses",
-                    "transactions"
-                ],
-                "summary": "Validate a token transaction",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Kermesse ID",
-                        "name": "kermesseID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Transaction ID",
-                        "name": "transactionID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    }
-                }
-            }
-        },
         "/users/{userID}": {
             "get": {
                 "produces": [
@@ -878,6 +1041,32 @@
         }
     },
     "definitions": {
+        "domain.ChatMessage": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "kermesse_id": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "receiver_id": {
+                    "type": "integer"
+                },
+                "sender_id": {
+                    "type": "integer"
+                },
+                "stand_id": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Kermesse": {
             "type": "object",
             "properties": {
@@ -1083,6 +1272,22 @@
                 }
             }
         },
+        "request.AttributePointsRequest": {
+            "type": "object",
+            "required": [
+                "points",
+                "student_id"
+            ],
+            "properties": {
+                "points": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "student_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "request.CreateKermesseRequest": {
             "type": "object",
             "required": [
@@ -1175,9 +1380,12 @@
                 "role": {
                     "type": "string"
                 },
-                "student_email": {
-                    "description": "Parent-specific field",
-                    "type": "string"
+                "student_emails": {
+                    "description": "Parent-specific field\nStudentEmail string `json:\"student_email,omitempty\"`",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1255,12 +1463,16 @@
         "request.TokenPurchaseRequest": {
             "type": "object",
             "required": [
-                "amount"
+                "amount",
+                "stripe_token"
             ],
             "properties": {
                 "amount": {
                     "type": "integer",
                     "minimum": 1
+                },
+                "stripe_token": {
+                    "type": "string"
                 }
             }
         },
@@ -1273,6 +1485,23 @@
                 },
                 "error_code": {
                     "description": "application-specific error code",
+                    "type": "integer"
+                }
+            }
+        },
+        "response.PointsAttributionResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "points_attributed": {
+                    "type": "integer"
+                },
+                "student_id": {
+                    "type": "integer"
+                },
+                "total_points": {
                     "type": "integer"
                 }
             }

@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v72/charge"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/api/handler/v1/request"
+	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/config"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/domain"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/repository"
 )
@@ -44,17 +47,24 @@ type KermesseRepository interface {
 	GetStockByID(ctx context.Context, stockID uint) (domain.Stock, error)
 	UpdateStock(ctx context.Context, updatedStock domain.Stock) (domain.Stock, error)
 	GetStandsByKermesseID(kermesseID uint) ([]domain.Stand, error)
+	SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error)
+	GetChatMessages(kermesseID, standID uint, limit, offset int) ([]domain.ChatMessage, error)
+	IsUserStandHolder(standID, userID uint) (bool, error)
+	AttributePointsToStudent(ctx context.Context, studentID uint, points int) (domain.PointAttributionResult, error)
+	IncrementStandPointsGiven(ctx context.Context, standID uint, points int) error
 }
 
 type KermesseService struct {
-	repo     KermesseRepository
-	userRepo UserRepository
+	repo         KermesseRepository
+	userRepo     UserRepository
+	stripeConfig *config.StripeConfig
 }
 
-func NewKermesseService(repo KermesseRepository, userRepo UserRepository) *KermesseService {
+func NewKermesseService(repo KermesseRepository, userRepo UserRepository, stripeConfig *config.StripeConfig) *KermesseService {
 	return &KermesseService{
-		repo:     repo,
-		userRepo: userRepo,
+		repo:         repo,
+		userRepo:     userRepo,
+		stripeConfig: stripeConfig,
 	}
 }
 
@@ -71,6 +81,57 @@ func (s *KermesseService) IsParticipating(kermessID uint, userID uint) (bool, er
 	}
 
 	return false, nil
+}
+
+func (s *KermesseService) ProcessStripePayment(token string, amount int) (*stripe.Charge, error) {
+	stripe.Key = s.stripeConfig.SecretKey
+
+	params := &stripe.ChargeParams{
+		Amount:      stripe.Int64(int64(amount * 100)), // amount in cents
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Description: stripe.String("Token purchase for Kermesse"),
+		Source:      &stripe.SourceParams{Token: stripe.String(token)},
+	}
+
+	chargeStripe, err := charge.New(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chargeStripe: %w", err)
+	}
+
+	return chargeStripe, nil
+}
+
+func (s *KermesseService) SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error) {
+	// Validate that the sender is either an organizer or a stand holder of the specified stand
+	isOrganizer, err := s.repo.IsUserKermesseOrganizer(message.KermesseID, message.SenderID)
+	if err != nil {
+		return domain.ChatMessage{}, fmt.Errorf("failed to check if user is organizer: %w", err)
+	}
+
+	isStandHolder, err := s.repo.IsUserStandHolder(message.StandID, message.SenderID)
+	if err != nil {
+		return domain.ChatMessage{}, fmt.Errorf("failed to check if user is stand holder: %w", err)
+	}
+
+	if !isOrganizer && !isStandHolder {
+		return domain.ChatMessage{}, fmt.Errorf("user is not authorized to send messages for this stand")
+	}
+
+	// Save the message
+	savedMessage, err := s.repo.SaveChatMessage(message)
+	if err != nil {
+		return domain.ChatMessage{}, fmt.Errorf("failed to save chat message: %w", err)
+	}
+
+	return savedMessage, nil
+}
+
+func (s *KermesseService) GetChatMessages(kermesseID, standID uint, limit, offset int) ([]domain.ChatMessage, error) {
+	messages, err := s.repo.GetChatMessages(kermesseID, standID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat messages: %w", err)
+	}
+	return messages, nil
 }
 
 func (s *KermesseService) IsStandHolder(userID, standID uint) (bool, error) {
@@ -529,4 +590,38 @@ func (s *KermesseService) UpdateStock(ctx context.Context, req request.StockUpda
 	}
 
 	return nil
+}
+
+func (s *KermesseService) AttributePointsToStudent(ctx context.Context, kermesseID, standID, studentID uint, points int) (domain.PointAttributionResult, error) {
+	// Check if the stand is an activity stand
+	stand, err := s.repo.GetStandByID(standID)
+	if err != nil {
+		return domain.PointAttributionResult{}, fmt.Errorf("failed to get stand: %w", err)
+	}
+	if stand.Type != "activity" {
+		return domain.PointAttributionResult{}, fmt.Errorf("points can only be attributed by activity stands")
+	}
+
+	// Check if the student is participating in the kermesse
+	isParticipating, err := s.IsParticipating(kermesseID, studentID)
+	if err != nil {
+		return domain.PointAttributionResult{}, fmt.Errorf("failed to check student participation: %w", err)
+	}
+	if !isParticipating {
+		return domain.PointAttributionResult{}, fmt.Errorf("student is not participating in this kermesse")
+	}
+
+	// Attribute points to the student
+	result, err := s.repo.AttributePointsToStudent(ctx, studentID, points)
+	if err != nil {
+		return domain.PointAttributionResult{}, fmt.Errorf("failed to attribute points: %w", err)
+	}
+
+	// Update the stand's points given
+	err = s.repo.IncrementStandPointsGiven(ctx, standID, points)
+	if err != nil {
+		return domain.PointAttributionResult{}, fmt.Errorf("failed to update stand points given: %w", err)
+	}
+
+	return result, nil
 }

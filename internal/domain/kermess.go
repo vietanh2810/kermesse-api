@@ -15,3 +15,9 @@ type Kermesse struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+type PointAttributionResult struct {
+	StudentID   uint
+	PointsAdded int
+	TotalPoints int
+}

@@ -11,6 +11,7 @@ type AppConfig struct {
 	API      *APIConfig      `mapstructure:"API"`
 	Gin      *GinConfig      `mapstructure:"GIN"`
 	Postgres *PostgresConfig `mapstructure:"POSTGRES"`
+	Stripe   *StripeConfig   `mapstructure:"STRIPE"`
 }
 
 func (c *AppConfig) validate() error {
@@ -19,6 +20,7 @@ func (c *AppConfig) validate() error {
 		validation.Field(&c.API, validation.Required),
 		validation.Field(&c.Gin, validation.Required),
 		validation.Field(&c.Postgres, validation.Required),
+		validation.Field(&c.Stripe, validation.Required),
 	)
 }
 
@@ -37,6 +39,10 @@ func (c *AppConfig) validateConfig() error {
 
 	if err := c.Postgres.validate(); err != nil {
 		return fmt.Errorf("c.Postgres.validate() -> %w", err)
+	}
+
+	if err := c.Stripe.validate(); err != nil {
+		return fmt.Errorf("c.Stripe.validate() -> %w", err)
 	}
 
 	return nil
@@ -74,6 +80,17 @@ func (c *GinConfig) validate() error {
 	return validation.ValidateStruct(
 		c,
 		validation.Field(&c.Mode, validation.Required, validation.In(allowedModes...)),
+	)
+}
+
+type StripeConfig struct {
+	SecretKey string `mapstructure:"SECRET_KEY"`
+}
+
+func (c *StripeConfig) validate() error {
+	return validation.ValidateStruct(
+		c,
+		validation.Field(&c.SecretKey, validation.Required),
 	)
 }
 

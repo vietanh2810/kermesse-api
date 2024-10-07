@@ -20,7 +20,7 @@ type AuthService interface {
 	Signup(ctx context.Context, user domain.User) (domain.User, error)
 	Login(ctx context.Context, email, password string) (domain.User, error)
 	SignupStudent(ctx context.Context, student domain.Student) (domain.User, error)
-	SignupParent(ctx context.Context, parent domain.Parent, studentEmail string) (domain.User, error)
+	SignupParent(ctx context.Context, parent domain.Parent, studentEmails []string) (domain.User, error)
 	SignupStandHolder(ctx context.Context, standHolder domain.StandHolder) (domain.User, error)
 	SignupOrganizer(ctx context.Context, organizer domain.Organizer) (domain.User, error)
 }
@@ -80,7 +80,7 @@ func (h *AuthHandler) HandleSignup(ctx *gin.Context) {
 				Name:     req.Name,
 				Role:     "parent",
 			},
-		}, req.StudentEmail)
+		}, req.StudentEmails)
 
 	case "stand_holder":
 		user, err = h.svc.SignupStandHolder(ctx.Request.Context(), domain.StandHolder{
