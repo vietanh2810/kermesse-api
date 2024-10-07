@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/api/handler/v1/request"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/api/handler/v1/response"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/domain"
@@ -35,6 +36,12 @@ type KermesseService interface {
 	IsKermesseOrganizer(kermesseID, userID uint) (bool, error)
 	GetStandsByKermesseID(kermesseID uint) ([]domain.Stand, error)
 	IsStandHolder(userID, standID uint) (bool, error)
+	ProcessStripePayment(token string, amount int) (*stripe.Charge, error)
+	SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error)
+	GetChatMessages(kermesseID, standID uint, limit, offset int) ([]domain.ChatMessage, error)
+	AttributePointsToStudent(ctx context.Context, kermesseID, standID, studentID uint, points int) (domain.PointAttributionResult, error)
+	//IsUserKermesseOrganizer(kermesseID, userID uint) (bool, error)
+	//IsUserStandHolder(standID, userID uint) (bool, error)
 }
 
 type KermesseHandler struct {
@@ -405,6 +412,12 @@ func (h *KermesseHandler) HandleTokenPurchase(ctx *gin.Context) {
 		return
 	}
 
+	charge, err := h.svc.ProcessStripePayment(purchaseRequest.StripeToken, purchaseRequest.Amount)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process payment"})
+		return
+	}
+
 	// Create token transaction
 	transaction := domain.TokenTransaction{
 		KermesseID: uint(kermesseID),
@@ -414,7 +427,7 @@ func (h *KermesseHandler) HandleTokenPurchase(ctx *gin.Context) {
 		ToType:     "kermess",
 		Amount:     purchaseRequest.Amount,
 		Type:       domain.TokenPurchase,
-		Status:     "Pending",
+		Status:     "Completed",
 	}
 
 	// Submit token purchase purchaseRequest
@@ -427,62 +440,7 @@ func (h *KermesseHandler) HandleTokenPurchase(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message":     "Token purchase purchaseRequest submitted successfully",
 		"transaction": createdTransaction,
-	})
-}
-
-// HandleValidateTokenTransaction godoc
-// @Summary      Validate a token transaction
-// @Description  Validates a token transaction for a specific kermesse. Only organizers can perform this action.
-// @Tags         kermesses,transactions
-// @Produce      json
-// @Param        kermesseID      path  int  true  "Kermesse ID"
-// @Param        transactionID   path  int  true  "Transaction ID"
-// @Success      200
-// @Failure      400  {object}  response.Err
-// @Failure      401  {object}  response.Err
-// @Failure      403  {object}  response.Err
-// @Failure      404  {object}  response.Err
-// @Failure      500  {object}  response.Err
-// @Router       /kermesses/{kermesseID}/transaction/{transactionID}/validate [get]
-// @Security BearerAuth
-func (h *KermesseHandler) HandleValidateTokenTransaction(ctx *gin.Context) {
-	// Get transactionID from URL params
-	transactionID, err := strconv.ParseUint(ctx.Param("transactionID"), 10, 32)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid transaction ID: %w", err)))
-		return
-	}
-
-	user, respErr := getUserFromContext(ctx, h.uSvc)
-	if respErr != nil {
-		response.RenderErr(ctx, respErr)
-		return
-	}
-
-	if user.Role != "organizer" {
-		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not authorized to validate token transactions", user.ID)))
-		return
-	}
-
-	validatedTransaction, err := h.svc.ValidateTokenTransaction(uint(transactionID), user)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrTransactionNotFound):
-			response.RenderErr(ctx, response.ErrNotFound("transaction", "ID", transactionID))
-		case errors.Is(err, service.ErrUnauthorizedOrganizer):
-			response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not an organizer of this kermesse", user.ID)))
-		case errors.Is(err, service.ErrInvalidTransactionStatus):
-			response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("transaction is not in a valid state for validation")))
-		default:
-			err = fmt.Errorf("HandleValidateTokenTransaction -> h.svc.ValidateTokenTransaction -> %w", err)
-			response.RenderErr(ctx, response.ErrInternalServerError(err))
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"message":     "Token transaction validated successfully",
-		"transaction": validatedTransaction,
+		"charge_id":   charge.ID,
 	})
 }
 
@@ -876,4 +834,77 @@ func (h *KermesseHandler) HandleUpdateStock(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Stock updated successfully"})
+}
+
+// HandleAttributePointsToStudent godoc
+// @Summary Attribute points to a student
+// @Description Allows a stand holder to attribute points to a student for participating in an activity
+// @Tags kermesses,stands,students
+// @Accept json
+// @Produce json
+// @Param kermesseID path int true "Kermesse ID"
+// @Param standID path int true "Stand ID"
+// @Param attributePointsRequest body request.AttributePointsRequest true "Points attribution request"
+// @Success 200 {object} response.PointsAttributionResponse
+// @Failure 400 {object} response.Err
+// @Failure 401 {object} response.Err
+// @Failure 403 {object} response.Err
+// @Failure 404 {object} response.Err
+// @Failure 500 {object} response.Err
+// @Router /kermesses/{kermesseID}/stands/{standID}/attribute-points [post]
+// @Security BearerAuth
+func (h *KermesseHandler) HandleAttributePointsToStudent(c *gin.Context) {
+	kermesseID, err := strconv.ParseUint(c.Param("kermesseID"), 10, 32)
+	if err != nil {
+		response.RenderErr(c, response.ErrBadRequest(err))
+		return
+	}
+
+	standID, err := strconv.ParseUint(c.Param("standID"), 10, 32)
+	if err != nil {
+		response.RenderErr(c, response.ErrBadRequest(err))
+		return
+	}
+
+	var req request.AttributePointsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.RenderErr(c, response.ErrBadRequest(err))
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		response.RenderErr(c, response.ErrBadRequest(err))
+		return
+	}
+
+	user, respErr := getUserFromContext(c, h.uSvc)
+	if respErr != nil {
+		response.RenderErr(c, respErr)
+		return
+	}
+
+	// Check if the user is a stand holder and is associated with this stand
+	isStandHolder, err := h.svc.IsStandHolder(user.ID, uint(standID))
+	if err != nil {
+		response.RenderErr(c, response.ErrInternalServerError(err))
+		return
+	}
+	if !isStandHolder {
+		response.RenderErr(c, response.ErrPermissionDenied(err))
+		return
+	}
+
+	// Attribute points to the student
+	attributionResult, err := h.svc.AttributePointsToStudent(c, uint(kermesseID), uint(standID), req.StudentID, req.Points)
+	if err != nil {
+		response.RenderErr(c, response.ErrInternalServerError(err))
+		return
+	}
+
+	c.JSON(http.StatusOK, response.PointsAttributionResponse{
+		Message:          "Points attributed successfully",
+		StudentID:        req.StudentID,
+		PointsAttributed: req.Points,
+		TotalPoints:      attributionResult.TotalPoints,
+	})
 }

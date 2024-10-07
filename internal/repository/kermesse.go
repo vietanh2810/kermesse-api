@@ -44,6 +44,11 @@ type KermesseDAO interface {
 	GetChildrenTransactions(childrenIDs []uint, kermesseID uint) ([]dao.TokenTransaction, error)
 	GetStockByID(ctx context.Context, stockID uint) (dao.Stock, error)
 	GetStandsByKermesseID(kermesseID uint) ([]dao.Stand, error)
+	SaveChatMessage(message dao.ChatMessage) (dao.ChatMessage, error)
+	IsUserStandHolder(standID, userID uint) (bool, error)
+	GetChatMessages(kermesseID, standID uint, limit, offset int) ([]dao.ChatMessage, error)
+	AttributePointsToStudent(ctx context.Context, studentID uint, points int) (dao.PointAttributionResult, error)
+	IncrementStandPointsGiven(ctx context.Context, standID uint, points int) error
 }
 
 type KermesseRepository struct {
@@ -334,6 +339,57 @@ func (r *KermesseRepository) IsUserKermesseOrganizer(kermesseID, userID uint) (b
 	return isOrganizer, nil
 }
 
+func (r *KermesseRepository) SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error) {
+	messageDAO := r.chatMessageDomainToDAO(message)
+	savedMessage, err := r.dao.SaveChatMessage(messageDAO)
+	if err != nil {
+		return domain.ChatMessage{}, fmt.Errorf("r.dao.SaveChatMessage -> %w", err)
+	}
+	return r.chatMessageDAOToDomain(savedMessage), nil
+}
+
+func (r *KermesseRepository) GetChatMessages(kermesseID, standID uint, limit, offset int) ([]domain.ChatMessage, error) {
+	messagesDAO, err := r.dao.GetChatMessages(kermesseID, standID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("r.dao.GetChatMessages -> %w", err)
+	}
+
+	messages := make([]domain.ChatMessage, len(messagesDAO))
+	for i, msgDAO := range messagesDAO {
+		messages[i] = r.chatMessageDAOToDomain(msgDAO)
+	}
+
+	return messages, nil
+}
+
+func (r *KermesseRepository) IsUserStandHolder(standID, userID uint) (bool, error) {
+	return r.dao.IsUserStandHolder(standID, userID)
+}
+
+func (r *KermesseRepository) chatMessageDomainToDAO(message domain.ChatMessage) dao.ChatMessage {
+	return dao.ChatMessage{
+		ID:         message.ID,
+		KermesseID: message.KermesseID,
+		StandID:    message.StandID,
+		SenderID:   message.SenderID,
+		ReceiverID: message.ReceiverID,
+		Message:    message.Message,
+		Timestamp:  message.Timestamp,
+	}
+}
+
+func (r *KermesseRepository) chatMessageDAOToDomain(message dao.ChatMessage) domain.ChatMessage {
+	return domain.ChatMessage{
+		ID:         message.ID,
+		KermesseID: message.KermesseID,
+		StandID:    message.StandID,
+		SenderID:   message.SenderID,
+		ReceiverID: message.ReceiverID,
+		Message:    message.Message,
+		Timestamp:  message.Timestamp,
+	}
+}
+
 func (r *KermesseRepository) IncrementParentTokens(transactionFromID uint, transactionAmount int) error {
 	return r.dao.IncrementParentTokens(transactionFromID, transactionAmount)
 }
@@ -491,4 +547,28 @@ func (r *KermesseRepository) GetStandsByKermesseID(kermesseID uint) ([]domain.St
 	}
 
 	return stands, nil
+}
+
+func (r *KermesseRepository) AttributePointsToStudent(ctx context.Context, studentID uint, points int) (domain.PointAttributionResult, error) {
+	result, err := r.dao.AttributePointsToStudent(ctx, studentID, points)
+	if err != nil {
+		return domain.PointAttributionResult{}, fmt.Errorf("r.dao.AttributePointsToStudent -> %w", err)
+	}
+	return r.daoToDomainPointAttributionResult(result), nil
+}
+
+func (r *KermesseRepository) IncrementStandPointsGiven(ctx context.Context, standID uint, points int) error {
+	err := r.dao.IncrementStandPointsGiven(ctx, standID, points)
+	if err != nil {
+		return fmt.Errorf("r.dao.IncrementStandPointsGiven -> %w", err)
+	}
+	return nil
+}
+
+func (r *KermesseRepository) daoToDomainPointAttributionResult(result dao.PointAttributionResult) domain.PointAttributionResult {
+	return domain.PointAttributionResult{
+		StudentID:   result.StudentID,
+		PointsAdded: result.PointsAdded,
+		TotalPoints: result.TotalPoints,
+	}
 }

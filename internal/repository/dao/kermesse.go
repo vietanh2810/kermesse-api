@@ -82,6 +82,22 @@ type Ticket struct {
 	Number    string `gorm:"not null"`
 }
 
+type ChatMessage struct {
+	ID         uint `gorm:"primaryKey"`
+	KermesseID uint `gorm:"index"`
+	StandID    uint `gorm:"index"`
+	SenderID   uint `gorm:"index"`
+	ReceiverID uint `gorm:"index"`
+	Message    string
+	Timestamp  time.Time
+}
+
+type PointAttributionResult struct {
+	StudentID   uint
+	PointsAdded int
+	TotalPoints int
+}
+
 type KermesseDao struct {
 	db *gorm.DB
 }
@@ -409,4 +425,66 @@ func (d *KermesseDao) GetStandsByKermesseID(kermesseID uint) ([]Stand, error) {
 		return []Stand{}, err
 	}
 	return stands, nil
+}
+
+func (d *KermesseDao) IsUserStandHolder(standID, userID uint) (bool, error) {
+	var count int64
+	result := d.db.Model(&StandHolder{}).
+		Where("stand_id = ? AND user_id = ?", standID, userID).
+		Count(&count)
+	if result.Error != nil {
+		return false, fmt.Errorf("failed to check if user is stand holder: %w", result.Error)
+	}
+	return count > 0, nil
+}
+
+func (d *KermesseDao) SaveChatMessage(message ChatMessage) (ChatMessage, error) {
+	result := d.db.Create(&message)
+	if result.Error != nil {
+		return ChatMessage{}, fmt.Errorf("failed to save chat message: %w", result.Error)
+	}
+	return message, nil
+}
+
+func (d *KermesseDao) GetChatMessages(kermesseID, standID uint, limit, offset int) ([]ChatMessage, error) {
+	var messages []ChatMessage
+	result := d.db.Where("kermesse_id = ? AND stand_id = ?", kermesseID, standID).
+		Order("timestamp desc").
+		Limit(limit).
+		Offset(offset).
+		Find(&messages)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to get chat messages: %w", result.Error)
+	}
+	return messages, nil
+}
+
+func (d *KermesseDao) AttributePointsToStudent(ctx context.Context, studentID uint, points int) (PointAttributionResult, error) {
+	var student Student
+	err := d.db.WithContext(ctx).Where("user_id = ?", studentID).First(&student).Error
+	if err != nil {
+		return PointAttributionResult{}, fmt.Errorf("failed to find student: %w", err)
+	}
+
+	student.Points += points
+	err = d.db.WithContext(ctx).Save(&student).Error
+	if err != nil {
+		return PointAttributionResult{}, fmt.Errorf("failed to update student points: %w", err)
+	}
+
+	return PointAttributionResult{
+		StudentID:   studentID,
+		PointsAdded: points,
+		TotalPoints: student.Points,
+	}, nil
+}
+
+func (d *KermesseDao) IncrementStandPointsGiven(ctx context.Context, standID uint, points int) error {
+	result := d.db.WithContext(ctx).Model(&Stand{}).
+		Where("id = ?", standID).
+		UpdateColumn("points_given", gorm.Expr("points_given + ?", points))
+	if result.Error != nil {
+		return fmt.Errorf("failed to update stand points given: %w", result.Error)
+	}
+	return nil
 }

@@ -20,6 +20,7 @@ func InitTables(db *gorm.DB) error {
 		&Stand{},
 		&Kermesse{},
 		&Stock{},
+		&ChatMessage{},
 	)
 }
 

@@ -53,7 +53,8 @@ type CreateStandRequest struct {
 }
 
 type TokenPurchaseRequest struct {
-	Amount int `json:"amount" binding:"required,min=1"`
+	Amount      int    `json:"amount" binding:"required,min=1"`
+	StripeToken string `json:"stripe_token" binding:"required"`
 }
 
 type StandPurchaseRequest struct {
@@ -147,4 +148,21 @@ func validateStockItem(value interface{}) error {
 		validation.Field(&item.Quantity, validation.Required, validation.Min(0)),
 		validation.Field(&item.TokenCost, validation.Required, validation.Min(1)),
 	)
+}
+
+type AttributePointsRequest struct {
+	StudentID uint `json:"student_id" binding:"required"`
+	Points    int  `json:"points" binding:"required,min=1"`
+}
+
+func (req *AttributePointsRequest) Validate() error {
+	err := validation.ValidateStruct(
+		req,
+		validation.Field(&req.StudentID, validation.Required, validation.Min(uint(1))),
+		validation.Field(&req.Points, validation.Required, validation.Min(1)),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }

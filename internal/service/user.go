@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/domain"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/repository"
 )

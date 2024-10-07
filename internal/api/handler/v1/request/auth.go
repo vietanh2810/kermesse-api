@@ -34,7 +34,8 @@ type SignupRequest struct {
 	Role            string `json:"role"`
 
 	// Parent-specific field
-	StudentEmail string `json:"student_email,omitempty"`
+	//StudentEmail string `json:"student_email,omitempty"`
+	StudentEmails []string `json:"student_emails,omitempty"`
 }
 
 func isPasswordValid(password string) bool {
@@ -85,7 +86,7 @@ func (req *SignupRequest) Validate() error {
 	switch req.Role {
 	case "parent":
 		return validation.ValidateStruct(req,
-			validation.Field(&req.StudentEmail, validation.Required, is.Email),
+			validation.Field(&req.StudentEmails, validation.Required, validation.Length(1, 0), validation.Each(is.Email)),
 		)
 	}
 

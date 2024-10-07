@@ -126,17 +126,9 @@ func (s *AuthService) SignupOrganizer(ctx context.Context, organizer domain.Orga
 	return createdOrganizer.User, nil
 }
 
-func (s *AuthService) SignupParent(ctx context.Context, parent domain.Parent, studentEmail string) (domain.User, error) {
+func (s *AuthService) SignupParent(ctx context.Context, parent domain.Parent, studentEmails []string) (domain.User, error) {
 	if err := s.checkEmailExists(ctx, parent.User.Email); err != nil {
 		return domain.User{}, err
-	}
-
-	student, err := s.repo.FindStudentByEmail(ctx, studentEmail)
-	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return domain.User{}, ErrStudentNotFound
-		}
-		return domain.User{}, fmt.Errorf("s.repo.FindStudentByEmail -> %w", err)
 	}
 
 	hashedPassword, err := hashPassword(parent.User.Password)
@@ -150,11 +142,21 @@ func (s *AuthService) SignupParent(ctx context.Context, parent domain.Parent, st
 		return domain.User{}, fmt.Errorf("s.repo.CreateParent -> %w", err)
 	}
 
-	student.IsActive = true
-	student.ParentID = createdParent.UserID
-	_, err = s.repo.UpdateStudent(ctx, student)
-	if err != nil {
-		return domain.User{}, fmt.Errorf("s.repo.UpdateStudent -> %w", err)
+	for _, studentEmail := range studentEmails {
+		student, err := s.repo.FindStudentByEmail(ctx, studentEmail)
+		if err != nil {
+			if errors.Is(err, repository.ErrUserNotFound) {
+				return domain.User{}, fmt.Errorf("student with email %s not found", studentEmail)
+			}
+			return domain.User{}, fmt.Errorf("s.repo.FindStudentByEmail -> %w", err)
+		}
+
+		student.IsActive = true
+		student.ParentID = createdParent.UserID
+		_, err = s.repo.UpdateStudent(ctx, student)
+		if err != nil {
+			return domain.User{}, fmt.Errorf("s.repo.UpdateStudent -> %w", err)
+		}
 	}
 
 	return createdParent.User, nil

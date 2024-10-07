@@ -1,4 +1,21 @@
 definitions:
+  domain.ChatMessage:
+    properties:
+      id:
+        type: integer
+      kermesse_id:
+        type: integer
+      message:
+        type: string
+      receiver_id:
+        type: integer
+      sender_id:
+        type: integer
+      stand_id:
+        type: integer
+      timestamp:
+        type: string
+    type: object
   domain.Kermesse:
     properties:
       createdAt:
@@ -136,6 +153,17 @@ definitions:
       updated_at:
         type: string
     type: object
+  request.AttributePointsRequest:
+    properties:
+      points:
+        minimum: 1
+        type: integer
+      student_id:
+        type: integer
+    required:
+    - points
+    - student_id
+    type: object
   request.CreateKermesseRequest:
     properties:
       date:
@@ -198,9 +226,13 @@ definitions:
         type: string
       role:
         type: string
-      student_email:
-        description: Parent-specific field
-        type: string
+      student_emails:
+        description: |-
+          Parent-specific field
+          StudentEmail string `json:"student_email,omitempty"`
+        items:
+          type: string
+        type: array
     type: object
   request.StandPurchaseRequest:
     properties:
@@ -255,8 +287,11 @@ definitions:
       amount:
         minimum: 1
         type: integer
+      stripe_token:
+        type: string
     required:
     - amount
+    - stripe_token
     type: object
   response.Err:
     properties:
@@ -265,6 +300,17 @@ definitions:
         type: string
       error_code:
         description: application-specific error code
+        type: integer
+    type: object
+  response.PointsAttributionResponse:
+    properties:
+      message:
+        type: string
+      points_attributed:
+        type: integer
+      student_id:
+        type: integer
+      total_points:
         type: integer
     type: object
 info:
@@ -643,6 +689,160 @@ paths:
       summary: Update stock for a stand
       tags:
       - kermesses
+  /kermesses/{kermesseID}/stands/{standID}/attribute-points:
+    post:
+      consumes:
+      - application/json
+      description: Allows a stand holder to attribute points to a student for participating
+        in an activity
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Stand ID
+        in: path
+        name: standID
+        required: true
+        type: integer
+      - description: Points attribution request
+        in: body
+        name: attributePointsRequest
+        required: true
+        schema:
+          $ref: '#/definitions/request.AttributePointsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.PointsAttributionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Attribute points to a student
+      tags:
+      - kermesses
+      - stands
+      - students
+  /kermesses/{kermesseID}/stands/{standID}/chat:
+    get:
+      description: Establishes a WebSocket connection for real-time chat between organizers
+        and stand holders
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Stand ID
+        in: path
+        name: standID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching Protocols to WebSocket
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Establish WebSocket connection for chat
+      tags:
+      - kermesses
+      - chat
+  /kermesses/{kermesseID}/stands/{standID}/messages:
+    get:
+      description: Retrieves chat messages for a specific kermesse and stand
+      parameters:
+      - description: Kermesse ID
+        in: path
+        name: kermesseID
+        required: true
+        type: integer
+      - description: Stand ID
+        in: path
+        name: standID
+        required: true
+        type: integer
+      - description: Number of messages to retrieve (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.ChatMessage'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Err'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Err'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Err'
+      security:
+      - BearerAuth: []
+      summary: Get chat messages
+      tags:
+      - kermesses
+      - chat
   /kermesses/{kermesseID}/token/purchase:
     post:
       consumes:
@@ -773,52 +973,6 @@ paths:
       summary: Validate a purchase transaction
       tags:
       - kermesses
-  /kermesses/{kermesseID}/transaction/{transactionID}/validate:
-    get:
-      description: Validates a token transaction for a specific kermesse. Only organizers
-        can perform this action.
-      parameters:
-      - description: Kermesse ID
-        in: path
-        name: kermesseID
-        required: true
-        type: integer
-      - description: Transaction ID
-        in: path
-        name: transactionID
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.Err'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.Err'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.Err'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Err'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Err'
-      security:
-      - BearerAuth: []
-      summary: Validate a token transaction
-      tags:
-      - kermesses
-      - transactions
   /users/{userID}:
     get:
       parameters:

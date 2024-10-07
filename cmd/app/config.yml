@@ -16,3 +16,5 @@ postgres:
   password:
   db:
   log_level:
+stripe:
+  secret_key:
