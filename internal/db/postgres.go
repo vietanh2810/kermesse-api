@@ -12,6 +12,14 @@ import (
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/repository/dao"
 )
 
+func OpenPostgresWithURL(url string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
 func OpenPostgres(conf *config.PostgresConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%v port=%v user=%v password=%v dbname=%v sslmode=disable",

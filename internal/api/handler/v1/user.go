@@ -17,6 +17,10 @@ import (
 
 type UserService interface {
 	GetUser(ctx context.Context, id uint) (domain.User, error)
+	GetUserTokens(ctx context.Context, userID uint) (int, error)
+	GetStudentByUserID(ctx context.Context, userID uint) (domain.Student, error)
+	GetStandHolderByUserID(ctx context.Context, userID uint) (domain.StandHolder, error)
+	GetParentByUserID(ctx context.Context, userID uint) (domain.Parent, error)
 }
 
 type UserHandler struct {
@@ -81,4 +85,21 @@ func (h *UserHandler) HandleGetUser(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, user)
+}
+
+func getUserFromContext(ctx *gin.Context, userService UserService) (domain.User, *response.Err) {
+	claims, err := jwthelper.RetrieveClaimsFromContext(ctx)
+	if err != nil {
+		return domain.User{}, response.ErrInternalServerError(err)
+	}
+
+	user, err := userService.GetUser(ctx.Request.Context(), claims.UserID)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			return domain.User{}, response.ErrNotFound("user", "ID", claims.UserID)
+		}
+		return domain.User{}, response.ErrInternalServerError(fmt.Errorf("getUserFromContext -> GetUser -> %w", err))
+	}
+
+	return user, nil
 }

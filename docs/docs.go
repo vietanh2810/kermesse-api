@@ -9,7 +9,16 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.swagger.io/support",
+            "email": "support@swagger.io"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -99,6 +108,745 @@ const docTemplate = `{
                 }
             }
         },
+        "/kermesses": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all kermesses associated with the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Get kermesses for user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Kermesse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new kermesse event. Only users with the \"organizer\" role can create kermesses.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Create a new kermesse",
+                "parameters": [
+                    {
+                        "description": "Kermesse details",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.CreateKermesseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Kermesse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/children_transactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all transactions made by the children of the authenticated parent user for a specific kermesse. Only parents can access this endpoint.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "transactions"
+                ],
+                "summary": "Get children's transactions for a kermesse",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.TokenTransaction"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/participate": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adds the authenticated user as a participant to the specified kermesse",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Participate in a kermesse",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/stand": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all stands for a specific kermesse. The user must be a participant, organizer, or stand holder associated with the kermesse to access this information.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "stands"
+                ],
+                "summary": "Get stands for a kermesse",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Stand"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new stand for a specific kermesse. Only organizers, admins, or stand holders can perform this action.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "stands"
+                ],
+                "summary": "Create a new stand for a kermesse",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stand details",
+                        "name": "stand",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.CreateStandRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Stand"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/stand/{standID}/purchase": {
+            "post": {
+                "description": "Allows a user to make a purchase from a stand in a kermesse",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Make a purchase from a stand",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Stand ID",
+                        "name": "standID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Purchase request",
+                        "name": "purchaseRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.StandPurchaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/stand/{standID}/stock/update": {
+            "post": {
+                "description": "Allows updating the stock for items in a stand",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Update stock for a stand",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Stand ID",
+                        "name": "standID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stock update request",
+                        "name": "stockUpdateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.StockUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/token/purchase": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Allows a parent to purchase tokens for a specific kermesse. Only parents who are participating in the kermesse can perform this action.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "tokens"
+                ],
+                "summary": "Purchase tokens for a kermesse",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Token purchase details",
+                        "name": "purchase",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.TokenPurchaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.TokenTransaction"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/token/transferToChild": {
+            "post": {
+                "description": "Allows a parent to send tokens to their child",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Send tokens from parent to child",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Send tokens request",
+                        "name": "sendTokensRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.SendTokensRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/transaction/{transactionID}": {
+            "post": {
+                "description": "Allows a stand holder to validate a purchase transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Validate a purchase transaction",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Transaction ID",
+                        "name": "transactionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Approval request",
+                        "name": "approvalRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.StandTransactionApprovalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/transaction/{transactionID}/validate": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validates a token transaction for a specific kermesse. Only organizers can perform this action.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "transactions"
+                ],
+                "summary": "Validate a token transaction",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Transaction ID",
+                        "name": "transactionID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
         "/users/{userID}": {
             "get": {
                 "produces": [
@@ -141,6 +889,188 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.Kermesse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organizers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Organizer"
+                    }
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.User"
+                    }
+                },
+                "stands": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Stand"
+                    }
+                },
+                "tokensSold": {
+                    "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Organizer": {
+            "type": "object",
+            "properties": {
+                "organizedKermesses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Kermesse"
+                    }
+                },
+                "user": {
+                    "$ref": "#/definitions/domain.User"
+                },
+                "userID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.Stand": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kermesse": {
+                    "$ref": "#/definitions/domain.Kermesse"
+                },
+                "kermesseID": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pointsGiven": {
+                    "description": "Only for activity stands",
+                    "type": "integer"
+                },
+                "stock": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Stock"
+                    }
+                },
+                "tokensSpent": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "\"food\", \"drink\", or \"activity\"",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Stock": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "itemName": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "standID": {
+                    "type": "integer"
+                },
+                "tokenCost": {
+                    "description": "Cost in tokens",
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.TokenTransaction": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "fromID": {
+                    "type": "integer"
+                },
+                "fromType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kermesseID": {
+                    "type": "integer"
+                },
+                "standID": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "toID": {
+                    "type": "integer"
+                },
+                "toType": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/domain.TokenTransactionType"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.TokenTransactionType": {
+            "type": "string",
+            "enum": [
+                "Purchase",
+                "Distribution",
+                "Spend"
+            ],
+            "x-enum-varnames": [
+                "TokenPurchase",
+                "TokenDistribution",
+                "TokenSpend"
+            ]
+        },
         "domain.User": {
             "type": "object",
             "properties": {
@@ -153,7 +1083,56 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "request.CreateKermesseRequest": {
+            "type": "object",
+            "required": [
+                "date",
+                "location",
+                "name"
+            ],
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "format": "DD/MM/YYYY"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "request.CreateStandRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "stock": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/request.StockItem"
+                    }
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -173,13 +1152,24 @@ const docTemplate = `{
                 }
             }
         },
-        "request.SignupRequest": {
+        "request.SendTokensRequest": {
             "type": "object",
             "required": [
-                "confirm_password",
-                "email",
-                "password"
+                "amount",
+                "student_id"
             ],
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "student_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "request.SignupRequest": {
+            "type": "object",
             "properties": {
                 "confirm_password": {
                     "type": "string"
@@ -187,8 +1177,101 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "password": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "student_email": {
+                    "description": "Parent-specific field",
+                    "type": "string"
+                }
+            }
+        },
+        "request.StandPurchaseRequest": {
+            "type": "object",
+            "required": [
+                "itemName",
+                "quantity"
+            ],
+            "properties": {
+                "itemName": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "request.StandTransactionApprovalRequest": {
+            "type": "object",
+            "required": [
+                "approved",
+                "itemName",
+                "quantity",
+                "transaction_id"
+            ],
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                },
+                "itemName": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "transaction_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "request.StockItem": {
+            "type": "object",
+            "properties": {
+                "item_name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "token_cost": {
+                    "type": "integer"
+                }
+            }
+        },
+        "request.StockUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "item_name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "stock_id": {
+                    "type": "integer"
+                },
+                "token_cost": {
+                    "type": "integer"
+                }
+            }
+        },
+        "request.TokenPurchaseRequest": {
+            "type": "object",
+            "required": [
+                "amount"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },
@@ -204,6 +1287,14 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Bearer token",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

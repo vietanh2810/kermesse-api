@@ -2,15 +2,14 @@ package request
 
 import (
 	"errors"
-
-	regexp "github.com/dlclark/regexp2"
+	"unicode"
 
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/go-ozzo/ozzo-validation/is"
 )
 
 const (
-	passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$`
+	passwordMinLength = 8
 )
 
 var (
@@ -18,34 +17,76 @@ var (
 	errConfirmPasswordMismatch = errors.New("confirm password doesn't match the password")
 )
 
+//type SignupRequest struct {
+//	Email           string `json:"email" validate:"required"`
+//	Password        string `json:"password" validate:"required"`
+//	ConfirmPassword string `json:"confirm_password" validate:"required"`
+//	Role            string `json:"role" binding:"required,oneof=student parent"`
+//	StudentEmail    string `json:"student_email,omitempty"`
+//	Name            string `json:"name,omitempty"`
+//}
+
 type SignupRequest struct {
-	Email           string `json:"email" validate:"required"`
-	Password        string `json:"password" validate:"required"`
-	ConfirmPassword string `json:"confirm_password" validate:"required"`
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+	Name            string `json:"name"`
+	Role            string `json:"role"`
+
+	// Parent-specific field
+	StudentEmail string `json:"student_email,omitempty"`
+}
+
+func isPasswordValid(password string) bool {
+	hasLetter := false
+	hasNumber := false
+	hasSymbol := false
+
+	for _, char := range password {
+		switch {
+		case unicode.IsLetter(char):
+			hasLetter = true
+		case unicode.IsNumber(char):
+			hasNumber = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char):
+			hasSymbol = true
+		}
+
+		if hasLetter && hasNumber && hasSymbol {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (req *SignupRequest) Validate() error {
-	err := validation.ValidateStruct(
-		req,
+	// Common validation for all roles
+	err := validation.ValidateStruct(req,
 		validation.Field(&req.Email, validation.Required, is.Email),
-		validation.Field(&req.Password, validation.Required),
+		validation.Field(&req.Password, validation.Required, validation.Length(passwordMinLength, 0)),
 		validation.Field(&req.ConfirmPassword, validation.Required),
+		validation.Field(&req.Name, validation.Required),
+		validation.Field(&req.Role, validation.Required, validation.In("student", "parent", "stand_holder", "organizer")),
 	)
 	if err != nil {
 		return err
 	}
 
-	passwordExp := regexp.MustCompile(passwordRegexPattern, regexp.None)
-	ok, err := passwordExp.MatchString(req.Password)
-	if err != nil {
-		return err
-	}
-	if !ok {
+	if !isPasswordValid(req.Password) {
 		return errInvalidPassword
 	}
 
 	if req.Password != req.ConfirmPassword {
 		return errConfirmPasswordMismatch
+	}
+
+	// Role-specific validation
+	switch req.Role {
+	case "parent":
+		return validation.ValidateStruct(req,
+			validation.Field(&req.StudentEmail, validation.Required, is.Email),
+		)
 	}
 
 	return nil

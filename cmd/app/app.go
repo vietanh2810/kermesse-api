@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"gorm.io/gorm"
+	"os"
 
 	"go.uber.org/zap"
 
@@ -21,7 +23,13 @@ func Start() error {
 		return fmt.Errorf("failed to initialize logger -> %w", err)
 	}
 
-	postgresDB, err := db.OpenPostgres(conf.Postgres)
+	dbURL := os.Getenv("DATABASE_URL")
+	var postgresDB *gorm.DB
+	if dbURL != "" {
+		postgresDB, err = db.OpenPostgresWithURL(dbURL)
+	} else {
+		postgresDB, err = db.OpenPostgres(conf.Postgres)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to initialize database -> %w", err)
 	}
