@@ -108,6 +108,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/children_transactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all transactions made by the children of the authenticated parent user for a specific kermesse. Only parents can access this endpoint.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses",
+                    "transactions"
+                ],
+                "summary": "Get children's transactions for a kermesse",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Kermesse ID",
+                        "name": "kermesseID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.TokenTransaction"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
         "/kermesses": {
             "get": {
                 "security": [
@@ -186,68 +248,6 @@ const docTemplate = `{
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/domain.Kermesse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    }
-                }
-            }
-        },
-        "/kermesses/{kermesseID}/children_transactions": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieves all transactions made by the children of the authenticated parent user for a specific kermesse. Only parents can access this endpoint.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kermesses",
-                    "transactions"
-                ],
-                "summary": "Get children's transactions for a kermesse",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Kermesse ID",
-                        "name": "kermesseID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/domain.TokenTransaction"
-                            }
                         }
                     },
                     "400": {
@@ -513,6 +513,65 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/kermesses/{kermesseID}/stand/{standID}/stock": {
+            "post": {
+                "description": "Allows creating new stock items for a stand",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Create stock for a stand",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Stand ID",
+                        "name": "standID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stock creation request",
+                        "name": "stockCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.StockCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Stock"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Err"
                         }
@@ -885,62 +944,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/kermesses/{kermesseID}/token/transferToChild": {
-            "post": {
-                "description": "Allows a parent to send tokens to their child",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kermesses"
-                ],
-                "summary": "Send tokens from parent to child",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Kermesse ID",
-                        "name": "kermesseID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Send tokens request",
-                        "name": "sendTokensRequest",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/request.SendTokensRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Err"
-                        }
-                    }
-                }
-            }
-        },
         "/kermesses/{kermesseID}/transaction/{transactionID}": {
             "post": {
                 "description": "Allows a stand holder to validate a purchase transaction",
@@ -997,6 +1000,91 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get current user's information",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.User"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    }
+                }
+            }
+        },
+        "/token/transferToChild": {
+            "post": {
+                "description": "Allows a parent to send tokens to their child",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "kermesses"
+                ],
+                "summary": "Send tokens from parent to child",
+                "parameters": [
+                    {
+                        "description": "Send tokens request",
+                        "name": "sendTokensRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.SendTokensRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Err"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Err"
                         }
@@ -1092,6 +1180,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "is_participant": {
+                    "type": "boolean"
                 },
                 "location": {
                     "type": "string"
@@ -1392,7 +1483,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "student_emails": {
-                    "description": "Parent-specific field\nStudentEmail string ` + "`" + `json:\"student_email,omitempty\"` + "`" + `",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1440,6 +1530,20 @@ const docTemplate = `{
                 }
             }
         },
+        "request.StockCreateRequest": {
+            "type": "object",
+            "properties": {
+                "itemName": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "tokenCost": {
+                    "type": "integer"
+                }
+            }
+        },
         "request.StockItem": {
             "type": "object",
             "properties": {
@@ -1475,14 +1579,14 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "amount",
-                "stripe_token"
+                "payment_method_id"
             ],
             "properties": {
                 "amount": {
                     "type": "integer",
                     "minimum": 1
                 },
-                "stripe_token": {
+                "payment_method_id": {
                     "type": "string"
                 }
             }

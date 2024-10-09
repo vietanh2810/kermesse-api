@@ -134,15 +134,26 @@ func (d *KermesseDao) GetByID(id uint) (Kermesse, error) {
 	return kermesse, nil
 }
 
+//func (d *KermesseDao) GetStandByID(standID uint) (Stand, error) {
+//	var stand Stand
+//	err := d.db.Preload("Stock").First(&stand, standID).Error
+//	if err != nil {
+//		return Stand{}, err
+//	}
+//	return stand, nil
+//}
+
 func (d *KermesseDao) GetStandByID(standID uint) (Stand, error) {
 	var stand Stand
-	err := d.db.First(&stand, standID).Error
-	if err != nil {
-		return Stand{}, err
+	result := d.db.Preload("Stock").First(&stand, standID)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return Stand{}, fmt.Errorf("stand with ID %d not found", standID)
+		}
+		return Stand{}, fmt.Errorf("error fetching stand: %w", result.Error)
 	}
 	return stand, nil
 }
-
 func (d *KermesseDao) GetStockByID(ctx context.Context, stockID uint) (Stock, error) {
 	var stock Stock
 	err := d.db.WithContext(ctx).First(&stock, stockID).Error
@@ -152,9 +163,9 @@ func (d *KermesseDao) GetStockByID(ctx context.Context, stockID uint) (Stock, er
 	return stock, nil
 }
 
-func (d *KermesseDao) GetStockItem(standID uint, itemName string) (Stock, error) {
+func (d *KermesseDao) GetStockItem(standID uint, stockID uint) (Stock, error) {
 	var stock Stock
-	err := d.db.Where("stand_id = ? AND item_name = ?", standID, itemName).First(&stock).Error
+	err := d.db.Where("stand_id = ? AND id = ?", standID, stockID).First(&stock).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return Stock{}, ErrStockNotFound
@@ -162,6 +173,20 @@ func (d *KermesseDao) GetStockItem(standID uint, itemName string) (Stock, error)
 		return Stock{}, err
 	}
 	return stock, nil
+}
+
+func (d *KermesseDao) GetAllKermesses() ([]Kermesse, error) {
+	var kermesses []Kermesse
+	err := d.db.
+		Preload("Organizers").
+		Preload("Participants").
+		Preload("Stands").
+		Preload("Stands.Stock").
+		Find(&kermesses).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch kermesses: %w", err)
+	}
+	return kermesses, nil
 }
 
 func (d *KermesseDao) FindByUserID(user User) ([]Kermesse, error) {
@@ -398,6 +423,13 @@ func (d *KermesseDao) UpdateStock(ctx context.Context, stock Stock) (Stock, erro
 	return stock, nil
 }
 
+func (d *KermesseDao) CreateStock(ctx context.Context, stockDAO Stock) (Stock, error) {
+	if err := d.db.WithContext(ctx).Create(&stockDAO).Error; err != nil {
+		return Stock{}, err
+	}
+	return stockDAO, nil
+}
+
 func (d *KermesseDao) GetChildrenByParentID(parentID uint) ([]Student, error) {
 	var students []Student
 	err := d.db.Where("parent_id = ?", parentID).Find(&students).Error
@@ -407,9 +439,18 @@ func (d *KermesseDao) GetChildrenByParentID(parentID uint) ([]Student, error) {
 	return students, nil
 }
 
-func (d *KermesseDao) GetChildrenTransactions(childrenIDs []uint, kermesseID uint) ([]TokenTransaction, error) {
+//func (d *KermesseDao) GetChildrenTransactions(childrenIDs []uint, kermesseID uint) ([]TokenTransaction, error) {
+//	var transactions []TokenTransaction
+//	err := d.db.Where("from_id IN ? AND kermesse_id = ?", childrenIDs, kermesseID).Find(&transactions).Error
+//	if err != nil {
+//		return []TokenTransaction{}, err
+//	}
+//	return transactions, nil
+//}
+
+func (d *KermesseDao) GetChildrenTransactions(childrenIDs []uint) ([]TokenTransaction, error) {
 	var transactions []TokenTransaction
-	err := d.db.Where("from_id IN ? AND kermesse_id = ?", childrenIDs, kermesseID).Find(&transactions).Error
+	err := d.db.Where("from_id IN ?", childrenIDs).Find(&transactions).Error
 	if err != nil {
 		return []TokenTransaction{}, err
 	}

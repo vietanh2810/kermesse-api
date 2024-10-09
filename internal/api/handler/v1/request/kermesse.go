@@ -35,6 +35,21 @@ func (req *SendTokensRequest) Validate() error {
 	return nil
 }
 
+type StockCreateRequest struct {
+	ItemName  string `json:"itemName"`
+	Quantity  int    `json:"quantity"`
+	TokenCost int    `json:"tokenCost"`
+}
+
+func (r *StockCreateRequest) Validate() error {
+	return validation.ValidateStruct(
+		r,
+		validation.Field(&r.ItemName, validation.Required, validation.Length(1, 50)),
+		validation.Field(&r.Quantity, validation.Required, validation.Min(0)),
+		validation.Field(&r.TokenCost, validation.Required, validation.Min(1)),
+	)
+}
+
 func (req *CreateKermesseRequest) Validate() error {
 	return validation.ValidateStruct(
 		req,
@@ -53,13 +68,13 @@ type CreateStandRequest struct {
 }
 
 type TokenPurchaseRequest struct {
-	Amount      int    `json:"amount" binding:"required,min=1"`
-	StripeToken string `json:"stripe_token" binding:"required"`
+	Amount          int    `json:"amount" binding:"required,min=1"`
+	PaymentMethodID string `json:"payment_method_id" binding:"required"`
 }
 
 type StandPurchaseRequest struct {
-	ItemName string `json:"itemName" binding:"required"`
-	Quantity int    `json:"quantity" binding:"required,min=1"`
+	StockID  uint `json:"stock_id" binding:"required"`
+	Quantity int  `json:"quantity" binding:"required,min=1"`
 }
 
 type StandTransactionApprovalRequest struct {
@@ -102,7 +117,7 @@ func (req *StockUpdateRequest) Validate() error {
 func (req *StandPurchaseRequest) Validate() error {
 	err := validation.ValidateStruct(
 		req,
-		validation.Field(&req.ItemName, validation.Required, validation.Length(1, 50)),
+		validation.Field(&req.StockID, validation.Required, validation.Min(uint(1))),
 		validation.Field(&req.Quantity, validation.Required, validation.Min(1)),
 	)
 	if err != nil {
@@ -128,7 +143,7 @@ func (req *CreateStandRequest) Validate() error {
 		validation.Field(&req.Name, validation.Required, validation.Length(2, 50)),
 		validation.Field(&req.Type, validation.Required, validation.In("food", "drink", "activity")),
 		validation.Field(&req.Description, validation.Length(0, 200)),
-		validation.Field(&req.Stock, validation.Required, validation.Each(validation.By(validateStockItem))),
+		//validation.Field(&req.Stock, validation.Required, validation.Each(validation.By(validateStockItem))),
 	)
 	if err != nil {
 		return err

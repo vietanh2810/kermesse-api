@@ -13,11 +13,13 @@ var (
 
 type UserRepository interface {
 	FindByID(ctx context.Context, id uint) (domain.User, error)
+	FindByIDWithDetails(ctx context.Context, id uint) (domain.UserWithDetails, error)
 	CreateStudent(ctx context.Context, student domain.Student) (domain.Student, error)
 	FindStudentByUserID(ctx context.Context, id uint) (domain.Student, error)
 	FindParentByUserID(ctx context.Context, id uint) (domain.Parent, error)
 	FindStandHolderByUserID(ctx context.Context, id uint) (domain.StandHolder, error)
 	UpdateUserTokens(ctx context.Context, userID uint, amount int) error
+	UpdateParent(ctx context.Context, parent domain.Parent) (domain.Parent, error)
 }
 
 type UserService struct {
@@ -30,10 +32,19 @@ func NewUserService(repo UserRepository) *UserService {
 	}
 }
 
-func (s *UserService) GetUser(ctx context.Context, id uint) (domain.User, error) {
-	user, err := s.repo.FindByID(ctx, id)
+//func (s *UserService) GetUser(ctx context.Context, id uint) (domain.User, error) {
+//	user, err := s.repo.FindByID(ctx, id)
+//	if err != nil {
+//		return domain.User{}, fmt.Errorf("s.repo.FindByID -> %w", err)
+//	}
+//
+//	return user, nil
+//}
+
+func (s *UserService) GetUser(ctx context.Context, id uint) (domain.UserWithDetails, error) {
+	user, err := s.repo.FindByIDWithDetails(ctx, id)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("s.repo.FindByID -> %w", err)
+		return domain.UserWithDetails{}, fmt.Errorf("s.repo.FindByIDWithDetails -> %w", err)
 	}
 
 	return user, nil

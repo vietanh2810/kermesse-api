@@ -436,6 +436,18 @@ func (d *UserDAO) FindStudentByUserID(ctx context.Context, id uint) (Student, er
 	return student, nil
 }
 
+func (d *UserDAO) FindStudentOnlyByUserID(ctx context.Context, userID uint) (Student, error) {
+	var student Student
+	err := d.db.Where("user_id = ?", userID).First(&student).Error
+	return student, err
+}
+
+func (d *UserDAO) FindParentOnlyByUserID(ctx context.Context, userID uint) (Parent, error) {
+	var parent Parent
+	err := d.db.Where("user_id = ?", userID).First(&parent).Error
+	return parent, err
+}
+
 func (d *UserDAO) FindParentByUserID(ctx context.Context, id uint) (Parent, error) {
 	var parent Parent
 	result := d.db.WithContext(ctx).
@@ -451,6 +463,20 @@ func (d *UserDAO) FindParentByUserID(ctx context.Context, id uint) (Parent, erro
 	}
 
 	return parent, nil
+}
+
+func (d *UserDAO) FindStudentsByParentID(ctx context.Context, parentID uint) ([]Student, error) {
+	var students []Student
+	result := d.db.WithContext(ctx).
+		Where("parent_id = ?", parentID).
+		Preload("User").
+		Find(&students)
+
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to find students: %w", result.Error)
+	}
+
+	return students, nil
 }
 
 func (d *UserDAO) FindStandHolderByUserID(ctx context.Context, id uint) (StandHolder, error) {

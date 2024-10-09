@@ -61,8 +61,9 @@ func (s *Server) initUserHandler(db *gorm.DB) *v1.UserHandler {
 
 func (s *Server) initChatHandler(db *gorm.DB) *v1.ChatHandler {
 	kermesseDAO := dao.NewKermesseDao(db)
-	repo := repository.NewKermesseRepository(kermesseDAO)
+
 	userRepo := repository.NewUserRepository(dao.NewUserDAO(db))
+	repo := repository.NewKermesseRepository(kermesseDAO, userRepo)
 	uSvc := service.NewUserService(repository.NewUserRepository(dao.NewUserDAO(db)))
 	svc := service.NewKermesseService(repo, userRepo, s.Config.Stripe)
 	handler := v1.NewChatHandler(svc, uSvc)
@@ -73,8 +74,9 @@ func (s *Server) initChatHandler(db *gorm.DB) *v1.ChatHandler {
 func (s *Server) initKermesseHandler(db *gorm.DB) *v1.KermesseHandler {
 
 	kermesseDAO := dao.NewKermesseDao(db)
-	repo := repository.NewKermesseRepository(kermesseDAO)
+
 	userRepo := repository.NewUserRepository(dao.NewUserDAO(db))
+	repo := repository.NewKermesseRepository(kermesseDAO, userRepo)
 	svc := service.NewKermesseService(repo, userRepo, s.Config.Stripe)
 	uSvc := service.NewUserService(repository.NewUserRepository(dao.NewUserDAO(db)))
 	handler := v1.NewKermesseHandler(svc, uSvc)
@@ -102,6 +104,7 @@ func (s *Server) MountHandlers(authHandler *v1.AuthHandler, userHandler *v1.User
 	users := s.Router.Group(basePath, middleware.NewAuthenticator(s.Config.API.JWTSigningKey).VerifyJWT())
 	{
 		users.GET("/users/:userID", userHandler.HandleGetUser)
+		users.GET("/me", userHandler.HandleGetMe)
 	}
 
 	kermesses := s.Router.Group(basePath, middleware.NewAuthenticator(s.Config.API.JWTSigningKey).VerifyJWT())
@@ -109,15 +112,16 @@ func (s *Server) MountHandlers(authHandler *v1.AuthHandler, userHandler *v1.User
 		kermesses.GET("/kermesses/", kermesseHandler.HandleGetKermesses)
 		kermesses.GET("/kermesses/:kermesseID/participate", kermesseHandler.HandleKermesseParticipation)
 		kermesses.GET("/kermesses/:kermesseID/stand", kermesseHandler.HandleGetStands)
-		kermesses.GET("/kermesses/:kermesseID/children_transactions", kermesseHandler.HandleGetChildrenTransactions)
-		kermesses.POST("/kermesses/", kermesseHandler.HandleCreateKermesse)
+		kermesses.GET("/children_transactions", kermesseHandler.HandleGetChildrenTransactions)
+		kermesses.POST("/kermesses", kermesseHandler.HandleCreateKermesse)
 		kermesses.POST("/kermesses/:kermesseID/stand", kermesseHandler.HandleCreateStand)
 		kermesses.POST("/kermesses/:kermesseID/token/purchase", kermesseHandler.HandleTokenPurchase)
-		kermesses.POST("/kermesses/:kermesseID/token/transferToChild", kermesseHandler.HandleParentSendTokensToChild)
+		kermesses.POST("/token/transferToChild", kermesseHandler.HandleParentSendTokensToChild)
 		kermesses.POST("/kermesses/:kermesseID/stand/:standID/purchase", kermesseHandler.HandleStandPurchase)
 		kermesses.POST("/kermesses/:kermesseID/stand/:standID/stock/update", kermesseHandler.HandleUpdateStock)
+		kermesses.POST("/kermesses/:kermesseID/stand/:standID/stock", kermesseHandler.HandleCreateStock)
 		kermesses.POST("/kermesses/:kermesseID/stands/:standID/attribute-points", kermesseHandler.HandleAttributePointsToStudent)
-		kermesses.POST("/kermesses/:kermesseID/transaction/:transactionID", kermesseHandler.HandleValidatePurchase)
+		//kermesses.POST("/kermesses/:kermesseID/transaction/:transactionID", kermesseHandler.HandleValidatePurchase)
 		// Chat
 		kermesses.GET("/kermesses/:kermesseID/stands/:standID/chat", chatHandler.HandleWebSocket)
 		kermesses.GET("/kermesses/:kermesseID/stands/:standID/messages", chatHandler.HandleGetChatMessages)

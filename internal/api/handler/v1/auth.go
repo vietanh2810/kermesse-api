@@ -48,6 +48,7 @@ func NewAuthHandler(conf *config.APIConfig, svc AuthService) *AuthHandler {
 // @Router       /auth/signup [post]
 func (h *AuthHandler) HandleSignup(ctx *gin.Context) {
 	var req request.SignupRequest
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.RenderErr(ctx, response.ErrBadRequest(err))
 		return

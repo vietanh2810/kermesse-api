@@ -26,25 +26,29 @@
       <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/signup/signup_bloc.dart" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/signup/signup_event.dart" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/signup/signup_state.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/user/user_bloc.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/user/user_event.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../kermesse_flutter/lib/services/user/user_state.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/f2a69e85-0163-45b6-b42b-3b8ce86e8ef4.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/f2a69e85-0163-45b6-b42b-3b8ce86e8ef4.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/f2a69e85-0163-45b6-b42b-3b8ce86e8ef4/storage_v2/_src_/database/gin_gorm_auth_jwt.GaplXw/schema/public.abK9xQ.meta" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/f2a69e85-0163-45b6-b42b-3b8ce86e8ef4/storage_v2/_src_/database/gin_gorm_auth_jwt.GaplXw/schema/public.abK9xQ.meta" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmd/app/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/app/config.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/docs.go" beforeDir="false" afterPath="$PROJECT_DIR$/docs/docs.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/docs/swagger.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/swagger.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/docs/swagger.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/auth.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/kermesse.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/request/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/request/auth.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/request/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/request/kermesse.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/api/handler/v1/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/handler/v1/user.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/api/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/api/server.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/config/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/config/config.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/domain/kermess.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/kermess.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/domain/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/user.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/repository/dao/init.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/dao/init.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/repository/dao/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/dao/kermesse.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/repository/dao/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/dao/user.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/repository/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/kermesse.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/service/auth.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/service/auth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/repository/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repository/user.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/service/kermesse.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/service/kermesse.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/service/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/service/user.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tmp/build-errors.log" beforeDir="false" afterPath="$PROJECT_DIR$/tmp/build-errors.log" afterDir="false" />

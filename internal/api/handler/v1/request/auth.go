@@ -27,15 +27,12 @@ var (
 //}
 
 type SignupRequest struct {
-	Email           string `json:"email"`
-	Password        string `json:"password"`
-	ConfirmPassword string `json:"confirm_password"`
-	Name            string `json:"name"`
-	Role            string `json:"role"`
-
-	// Parent-specific field
-	//StudentEmail string `json:"student_email,omitempty"`
-	StudentEmails []string `json:"student_emails,omitempty"`
+	Name            string   `json:"name"`
+	Email           string   `json:"email"`
+	Password        string   `json:"password"`
+	ConfirmPassword string   `json:"confirm_password"`
+	Role            string   `json:"role"`
+	StudentEmails   []string `json:"student_emails,omitempty"`
 }
 
 func isPasswordValid(password string) bool {
