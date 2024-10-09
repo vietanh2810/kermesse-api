@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/charge"
+	"github.com/stripe/stripe-go/v72/paymentintent"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/api/handler/v1/request"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/config"
 	"github.com/yizeng/gab/gin/gorm/auth-jwt/internal/domain"
@@ -42,16 +42,18 @@ type KermesseRepository interface {
 	GetStandByID(standID uint) (domain.Stand, error)
 	UpdateTransactionStatus(transactionID uint, status string) error
 	UpdateStand(ctx context.Context, stand domain.Stand) (domain.Stand, error)
-	UpdateStockQuantity(ctx context.Context, standID uint, itemName string, quantityChange int) error
-	GetChildrenTransactions(parentID uint, kermesseID uint) ([]domain.TokenTransaction, error)
+	UpdateStockQuantity(ctx context.Context, standID uint, stockID uint, quantityChange int) error
+	GetChildrenTransactions(parentID uint) ([]domain.TokenTransaction, error)
 	GetStockByID(ctx context.Context, stockID uint) (domain.Stock, error)
 	UpdateStock(ctx context.Context, updatedStock domain.Stock) (domain.Stock, error)
+	CreateStock(ctx context.Context, stock domain.Stock) (domain.Stock, error)
 	GetStandsByKermesseID(kermesseID uint) ([]domain.Stand, error)
 	SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error)
 	GetChatMessages(kermesseID, standID uint, limit, offset int) ([]domain.ChatMessage, error)
 	IsUserStandHolder(standID, userID uint) (bool, error)
 	AttributePointsToStudent(ctx context.Context, studentID uint, points int) (domain.PointAttributionResult, error)
 	IncrementStandPointsGiven(ctx context.Context, standID uint, points int) error
+	GetAllKermesses() ([]domain.Kermesse, error)
 }
 
 type KermesseService struct {
@@ -74,6 +76,10 @@ func (s *KermesseService) IsParticipating(kermessID uint, userID uint) (bool, er
 		return false, fmt.Errorf("s.repo.FindKermessesByUserID -> %w", err)
 	}
 
+	fmt.Printf("kermesses: %v\n", kermesses)
+	fmt.Printf("kermessID: %d\n", kermessID)
+	fmt.Printf("userID: %d\n", userID)
+
 	for _, k := range kermesses {
 		if k.ID == kermessID {
 			return true, nil
@@ -83,22 +89,32 @@ func (s *KermesseService) IsParticipating(kermessID uint, userID uint) (bool, er
 	return false, nil
 }
 
-func (s *KermesseService) ProcessStripePayment(token string, amount int) (*stripe.Charge, error) {
+func (s *KermesseService) ProcessStripePayment(paymentMethodID string, amount int) (*stripe.PaymentIntent, error) {
 	stripe.Key = s.stripeConfig.SecretKey
 
-	params := &stripe.ChargeParams{
-		Amount:      stripe.Int64(int64(amount * 100)), // amount in cents
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Description: stripe.String("Token purchase for Kermesse"),
-		Source:      &stripe.SourceParams{Token: stripe.String(token)},
+	params := &stripe.PaymentIntentParams{
+		Amount:             stripe.Int64(int64(amount * 100)), // amount in cents
+		Currency:           stripe.String(string(stripe.CurrencyUSD)),
+		PaymentMethod:      stripe.String(paymentMethodID),
+		Description:        stripe.String("Token purchase for Kermesse"),
+		ConfirmationMethod: stripe.String(string(stripe.PaymentIntentConfirmationMethodAutomatic)),
+		Confirm:            stripe.Bool(true),
 	}
 
-	chargeStripe, err := charge.New(params)
+	pi, err := paymentintent.New(params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chargeStripe: %w", err)
+		return nil, fmt.Errorf("failed to create payment intent: %w", err)
 	}
 
-	return chargeStripe, nil
+	if pi.Status == stripe.PaymentIntentStatusRequiresAction {
+		return nil, fmt.Errorf("payment requires additional action")
+	}
+
+	if pi.Status != stripe.PaymentIntentStatusSucceeded {
+		return nil, fmt.Errorf("payment failed with status: %s", pi.Status)
+	}
+
+	return pi, nil
 }
 
 func (s *KermesseService) SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error) {
@@ -170,10 +186,10 @@ func (s *KermesseService) IsKermesseOrganizer(kermesseID, userID uint) (bool, er
 	return s.repo.IsUserKermesseOrganizer(kermesseID, userID)
 }
 
-func (s *KermesseService) GetKermesses(user domain.User) ([]domain.Kermesse, error) {
-	kermesses, err := s.repo.FindByUserID(user)
+func (s *KermesseService) GetKermesses() ([]domain.Kermesse, error) {
+	kermesses, err := s.repo.GetAllKermesses()
 	if err != nil {
-		return []domain.Kermesse{}, fmt.Errorf("s.repo.FindKermessesByUserID -> %w", err)
+		return []domain.Kermesse{}, fmt.Errorf("s.repo.GetAllKermesses -> %w", err)
 	}
 
 	return kermesses, nil
@@ -309,17 +325,17 @@ func (s *KermesseService) CreateParentToChildTokenTransaction(ctx context.Contex
 	}
 
 	// Check if both parent and student are participating in the kermesse
-	isParentParticipating, err := s.IsParticipating(transaction.KermesseID, user.ID)
-	if err != nil {
-		return domain.TokenTransaction{}, fmt.Errorf("s.IsParentParticipating -> %w", err)
-	}
-	isStudentParticipating, err := s.IsParticipating(transaction.KermesseID, student.UserID)
-	if err != nil {
-		return domain.TokenTransaction{}, fmt.Errorf("s.IsStudentParticipating -> %w", err)
-	}
-	if !isParentParticipating || !isStudentParticipating {
-		return domain.TokenTransaction{}, ErrUserNotParticipant
-	}
+	//isParentParticipating, err := s.IsParticipating(transaction.KermesseID, user.ID)
+	//if err != nil {
+	//	return domain.TokenTransaction{}, fmt.Errorf("s.IsParentParticipating -> %w", err)
+	//}
+	//isStudentParticipating, err := s.IsParticipating(transaction.KermesseID, student.UserID)
+	//if err != nil {
+	//	return domain.TokenTransaction{}, fmt.Errorf("s.IsStudentParticipating -> %w", err)
+	//}
+	//if !isParentParticipating || !isStudentParticipating {
+	//	return domain.TokenTransaction{}, ErrUserNotParticipant
+	//}
 
 	// Create the transaction
 	createdTransaction, err := s.repo.CreateTokenTransaction(transaction)
@@ -345,14 +361,16 @@ func (s *KermesseService) GetStandByID(standID uint) (domain.Stand, error) {
 	return stand, nil
 }
 
-func (s *KermesseService) GetStockItem(standID uint, itemName string) (domain.Stock, error) {
+func (s *KermesseService) GetStockItem(standID uint, stockId uint) (domain.Stock, error) {
 	stand, err := s.GetStandByID(standID)
 	if err != nil {
 		return domain.Stock{}, fmt.Errorf("s.GetStandByID -> %w", err)
 	}
 
+	fmt.Printf("stand: %v\n", stand)
+
 	for _, stock := range stand.Stock {
-		if stock.ItemName == itemName {
+		if stock.ID == stockId {
 			return stock, nil
 		}
 	}
@@ -360,7 +378,7 @@ func (s *KermesseService) GetStockItem(standID uint, itemName string) (domain.St
 	return domain.Stock{}, fmt.Errorf("stock item not found")
 }
 
-func (s *KermesseService) PerformPurchase(ctx context.Context, userID, kermesseID, standID uint, itemName string, quantity int, totalCost int) (domain.TokenTransaction, error) {
+func (s *KermesseService) PerformPurchase(ctx context.Context, userID, kermesseID, standID uint, stockID uint, quantity int, totalCost int) (domain.TokenTransaction, error) {
 	// Check if the stand exists and belongs to the kermesse
 	stand, err := s.repo.GetStandByID(standID)
 	if err != nil {
@@ -371,7 +389,7 @@ func (s *KermesseService) PerformPurchase(ctx context.Context, userID, kermesseI
 	}
 
 	// Get the stock item
-	stockItem, err := s.GetStockItem(standID, itemName)
+	stockItem, err := s.GetStockItem(standID, stockID)
 	if err != nil {
 		return domain.TokenTransaction{}, fmt.Errorf("s.repo.GetStockItem -> %w", err)
 	}
@@ -424,17 +442,33 @@ func (s *KermesseService) PerformPurchase(ctx context.Context, userID, kermesseI
 		Amount:     totalCost,
 		Type:       domain.TokenSpend,
 		StandID:    &standID,
-		Status:     "Pending",
+		Status:     "Validated",
 	}
 
 	if !transaction.IsValid() {
 		return domain.TokenTransaction{}, ErrInvalidTransaction
 	}
 
-	// Create the pending transaction
+	// Create the transaction
 	createdTransaction, err := s.repo.CreateTokenTransaction(transaction)
 	if err != nil {
 		return domain.TokenTransaction{}, fmt.Errorf("s.repo.CreateTokenTransaction -> %w", err)
+	}
+
+	if err := s.userRepo.UpdateUserTokens(ctx, transaction.FromID, -transaction.Amount); err != nil {
+		return domain.TokenTransaction{}, fmt.Errorf("s.userRepo.UpdateUserTokens -> %w", err)
+	}
+
+	stand.TokensSpent += transaction.Amount
+
+	if _, err := s.repo.UpdateStand(ctx, stand); err != nil {
+		return domain.TokenTransaction{}, fmt.Errorf("s.repo.UpdateStandTokensSpent -> %w", err)
+	}
+
+	if stand.Type != "activity" {
+		if err := s.repo.UpdateStockQuantity(ctx, *transaction.StandID, stockID, -quantity); err != nil {
+			return domain.TokenTransaction{}, fmt.Errorf("s.repo.UpdateStockQuantity -> %w", err)
+		}
 	}
 
 	return createdTransaction, nil
@@ -458,51 +492,51 @@ func (s *KermesseService) IsStandHolderAssociatedWithStand(ctx context.Context, 
 	return true, nil
 }
 
-func (s *KermesseService) ApproveTransaction(ctx context.Context, transactionID uint, standholderID uint, itemName string, quantity int) error {
-	// Fetch the transaction
-	transaction, err := s.repo.GetTokenTransactionByID(transactionID)
-	if err != nil {
-		return fmt.Errorf("s.repo.GetTokenTransactionByID -> %w", err)
-	}
-
-	// Verify that the standholder is associated with the stand
-	isAssociated, err := s.IsStandHolderAssociatedWithStand(ctx, standholderID, *transaction.StandID)
-	if err != nil {
-		return fmt.Errorf("s.IsStandholderAssociatedWithStand -> %w", err)
-	}
-	if !isAssociated {
-		return ErrUnauthorizedOrganizer
-	}
-
-	// Update the transaction status
-	if err := s.repo.UpdateTransactionStatus(transactionID, "Approved"); err != nil {
-		return fmt.Errorf("s.repo.UpdateTransactionStatus -> %w", err)
-	}
-
-	// Deduct tokens from the user
-	if err := s.userRepo.UpdateUserTokens(ctx, transaction.FromID, -transaction.Amount); err != nil {
-		return fmt.Errorf("s.userRepo.UpdateUserTokens -> %w", err)
-	}
-
-	stand, err := s.repo.GetStandByID(*transaction.StandID)
-	if err != nil {
-		return fmt.Errorf("s.repo.GetStand -> %w", err)
-	}
-
-	stand.TokensSpent += transaction.Amount
-
-	if _, err := s.repo.UpdateStand(ctx, stand); err != nil {
-		return fmt.Errorf("s.repo.UpdateStandTokensSpent -> %w", err)
-	}
-
-	if stand.Type != "activity" {
-		if err := s.repo.UpdateStockQuantity(ctx, *transaction.StandID, itemName, -quantity); err != nil {
-			return fmt.Errorf("s.repo.UpdateStockQuantity -> %w", err)
-		}
-	}
-
-	return nil
-}
+//func (s *KermesseService) ApproveTransaction(ctx context.Context, transactionID uint, standholderID uint, itemName string, quantity int) error {
+//	// Fetch the transaction
+//	transaction, err := s.repo.GetTokenTransactionByID(transactionID)
+//	if err != nil {
+//		return fmt.Errorf("s.repo.GetTokenTransactionByID -> %w", err)
+//	}
+//
+//	// Verify that the standholder is associated with the stand
+//	isAssociated, err := s.IsStandHolderAssociatedWithStand(ctx, standholderID, *transaction.StandID)
+//	if err != nil {
+//		return fmt.Errorf("s.IsStandholderAssociatedWithStand -> %w", err)
+//	}
+//	if !isAssociated {
+//		return ErrUnauthorizedOrganizer
+//	}
+//
+//	// Update the transaction status
+//	if err := s.repo.UpdateTransactionStatus(transactionID, "Approved"); err != nil {
+//		return fmt.Errorf("s.repo.UpdateTransactionStatus -> %w", err)
+//	}
+//
+//	// Deduct tokens from the user
+//	if err := s.userRepo.UpdateUserTokens(ctx, transaction.FromID, -transaction.Amount); err != nil {
+//		return fmt.Errorf("s.userRepo.UpdateUserTokens -> %w", err)
+//	}
+//
+//	stand, err := s.repo.GetStandByID(*transaction.StandID)
+//	if err != nil {
+//		return fmt.Errorf("s.repo.GetStand -> %w", err)
+//	}
+//
+//	stand.TokensSpent += transaction.Amount
+//
+//	if _, err := s.repo.UpdateStand(ctx, stand); err != nil {
+//		return fmt.Errorf("s.repo.UpdateStandTokensSpent -> %w", err)
+//	}
+//
+//	if stand.Type != "activity" {
+//		if err := s.repo.UpdateStockQuantity(ctx, *transaction.StandID, itemName, -quantity); err != nil {
+//			return fmt.Errorf("s.repo.UpdateStockQuantity -> %w", err)
+//		}
+//	}
+//
+//	return nil
+//}
 
 func (s *KermesseService) RejectTransaction(ctx context.Context, transactionID uint, standholderID uint) error {
 	transaction, err := s.repo.GetTokenTransactionByID(transactionID)
@@ -525,29 +559,45 @@ func (s *KermesseService) RejectTransaction(ctx context.Context, transactionID u
 	return nil
 }
 
-func (s *KermesseService) GetChildrenTransactions(ctx context.Context, userID uint, kermesseID uint) ([]domain.TokenTransaction, error) {
+func (s *KermesseService) GetChildrenTransactions(ctx context.Context, userID uint) ([]domain.TokenTransaction, error) {
 	// Check if the user is a parent
 	parent, err := s.userRepo.FindParentByUserID(ctx, userID)
 	if err != nil {
 		return []domain.TokenTransaction{}, fmt.Errorf("s.userRepo.FindParentByUserID -> %w", err)
 	}
 
-	// Check if the parent is participating in the kermesse
-	isParticipating, err := s.IsParticipating(kermesseID, parent.UserID)
-	if err != nil {
-		return []domain.TokenTransaction{}, fmt.Errorf("s.IsParentParticipating -> %w", err)
-	}
-	if !isParticipating {
-		return []domain.TokenTransaction{}, ErrUserNotParticipant
-	}
-
 	// Fetch the transactions
-	transactions, err := s.repo.GetChildrenTransactions(parent.UserID, kermesseID)
+	transactions, err := s.repo.GetChildrenTransactions(parent.UserID)
 	if err != nil {
 		return []domain.TokenTransaction{}, fmt.Errorf("s.repo.GetChildrenTransactions -> %w", err)
 	}
 
 	return transactions, nil
+}
+
+func (s *KermesseService) CreateStock(ctx context.Context, stock domain.Stock, userID uint) (domain.Stock, error) {
+	stand, err := s.GetStandByID(stock.StandID)
+	if err != nil {
+		return domain.Stock{}, fmt.Errorf("s.GetStandByID -> %w", err)
+	}
+
+	standHolder, err := s.userRepo.FindStandHolderByUserID(ctx, userID)
+	if err != nil {
+		return domain.Stock{}, fmt.Errorf("s.userRepo.FindStandHolderByUserID -> %w", err)
+	}
+
+	fmt.Printf("standHolder.StandID: %d, stand.ID: %d\n", standHolder.StandID, stand.ID)
+
+	if standHolder.StandID != stand.ID {
+		return domain.Stock{}, ErrUnauthorizedOrganizer
+	}
+
+	createdStock, err := s.repo.CreateStock(ctx, stock)
+	if err != nil {
+		return domain.Stock{}, fmt.Errorf("s.repo.CreateStock -> %w", err)
+	}
+
+	return createdStock, nil
 }
 
 func (s *KermesseService) UpdateStock(ctx context.Context, req request.StockUpdateRequest, userID uint, standID uint) error {
@@ -624,4 +674,20 @@ func (s *KermesseService) AttributePointsToStudent(ctx context.Context, kermesse
 	}
 
 	return result, nil
+}
+
+func (s *KermesseService) UpdateParentTokens(ctx context.Context, parentID uint, amount int) (domain.Parent, error) {
+	parent, err := s.userRepo.FindParentByUserID(ctx, parentID)
+	if err != nil {
+		return domain.Parent{}, fmt.Errorf("failed to get parent: %w", err)
+	}
+
+	parent.Tokens += amount
+
+	updatedParent, err := s.userRepo.UpdateParent(ctx, parent)
+	if err != nil {
+		return domain.Parent{}, fmt.Errorf("failed to update parent tokens: %w", err)
+	}
+
+	return updatedParent, nil
 }

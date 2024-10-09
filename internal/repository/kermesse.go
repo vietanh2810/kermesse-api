@@ -25,6 +25,7 @@ var (
 
 type KermesseDAO interface {
 	FindByUserID(user dao.User) ([]dao.Kermesse, error)
+	GetAllKermesses() ([]dao.Kermesse, error)
 	CreateKermess(ctx context.Context, kermesse dao.Kermesse, organizerID uint) (dao.Kermesse, error)
 	AddParticipant(ctx context.Context, kermesseID, userID uint) error
 	GetByID(id uint) (dao.Kermesse, error)
@@ -37,11 +38,12 @@ type KermesseDAO interface {
 	UpdateTokenTransaction(transactionDAO dao.TokenTransaction) (dao.TokenTransaction, error)
 	UpdateTokenBalances(parentUserID, studentUserID uint, amount int) error
 	GetStandByID(standID uint) (dao.Stand, error)
-	GetStockItem(standID uint, itemName string) (dao.Stock, error)
+	GetStockItem(standID uint, stockID uint) (dao.Stock, error)
 	UpdateStand(ctx context.Context, stand dao.Stand) (dao.Stand, error)
 	UpdateStock(ctx context.Context, stock dao.Stock) (dao.Stock, error)
+	CreateStock(ctx context.Context, stockDAO dao.Stock) (dao.Stock, error)
 	GetChildrenByParentID(parentID uint) ([]dao.Student, error)
-	GetChildrenTransactions(childrenIDs []uint, kermesseID uint) ([]dao.TokenTransaction, error)
+	GetChildrenTransactions(childrenIDs []uint) ([]dao.TokenTransaction, error)
 	GetStockByID(ctx context.Context, stockID uint) (dao.Stock, error)
 	GetStandsByKermesseID(kermesseID uint) ([]dao.Stand, error)
 	SaveChatMessage(message dao.ChatMessage) (dao.ChatMessage, error)
@@ -52,12 +54,14 @@ type KermesseDAO interface {
 }
 
 type KermesseRepository struct {
-	dao KermesseDAO
+	dao   KermesseDAO
+	uRepo *UserRepository
 }
 
-func NewKermesseRepository(dao KermesseDAO) *KermesseRepository {
+func NewKermesseRepository(dao KermesseDAO, uRepo *UserRepository) *KermesseRepository {
 	return &KermesseRepository{
-		dao: dao,
+		dao:   dao,
+		uRepo: uRepo,
 	}
 }
 
@@ -91,14 +95,36 @@ func (r *KermesseRepository) daoToDomainKermesse(daoKermesse []dao.Kermesse) []d
 	var kermesses []domain.Kermesse
 	for _, k := range daoKermesse {
 		kermesses = append(kermesses, domain.Kermesse{
-			ID:          k.ID,
-			Name:        k.Name,
-			Date:        k.Date,
-			Location:    k.Location,
-			Description: k.Description,
+			ID:           k.ID,
+			Name:         k.Name,
+			Date:         k.Date,
+			Location:     k.Location,
+			Description:  k.Description,
+			TokensSold:   k.TokensSold,
+			CreatedAt:    k.CreatedAt,
+			UpdatedAt:    k.UpdatedAt,
+			Stands:       r.standsDaoToDomain(k.Stands),
+			Organizers:   r.uRepo.organizersDaoToDomain(k.Organizers),
+			Participants: r.uRepo.daosToDomain(k.Participants),
 		})
 	}
 	return kermesses
+}
+
+func (r *KermesseRepository) standsDomainToDao(stands []domain.Stand) []dao.Stand {
+	daoStands := make([]dao.Stand, len(stands))
+	for i, stand := range stands {
+		daoStands[i] = r.standDomainToDao(stand)
+	}
+	return daoStands
+}
+
+func (r *KermesseRepository) standsDaoToDomain(stands []dao.Stand) []domain.Stand {
+	domainStands := make([]domain.Stand, len(stands))
+	for i, stand := range stands {
+		domainStands[i] = r.standDaoToDomain(stand)
+	}
+	return domainStands
 }
 
 func (r *KermesseRepository) standDomainToDao(stand domain.Stand) dao.Stand {
@@ -262,6 +288,15 @@ func (r *KermesseRepository) FindByUserID(user domain.User) ([]domain.Kermesse, 
 	kermesses, err := r.dao.FindByUserID(userDao)
 	if err != nil {
 		return []domain.Kermesse{}, fmt.Errorf("r.dao.FindKermessesByUserID -> %w", err)
+	}
+
+	return r.daoToDomainKermesse(kermesses), nil
+}
+
+func (r *KermesseRepository) GetAllKermesses() ([]domain.Kermesse, error) {
+	kermesses, err := r.dao.GetAllKermesses()
+	if err != nil {
+		return nil, fmt.Errorf("r.dao.GetAllKermesses -> %w", err)
 	}
 
 	return r.daoToDomainKermesse(kermesses), nil
@@ -440,8 +475,17 @@ func (r *KermesseRepository) UpdateStock(ctx context.Context, updatedStock domai
 	return r.daoToDomainStock(updatedStockDAO), nil
 }
 
-func (r *KermesseRepository) GetStockItem(standID uint, itemName string) (domain.Stock, error) {
-	stock, err := r.dao.GetStockItem(standID, itemName)
+func (r *KermesseRepository) CreateStock(ctx context.Context, stock domain.Stock) (domain.Stock, error) {
+	stockDAO := r.domainToDaoStock(stock)
+	createdStock, err := r.dao.CreateStock(ctx, stockDAO)
+	if err != nil {
+		return domain.Stock{}, fmt.Errorf("r.dao.CreateStock -> %w", err)
+	}
+	return r.daoToDomainStock(createdStock), nil
+}
+
+func (r *KermesseRepository) GetStockItem(standID uint, stockID uint) (domain.Stock, error) {
+	stock, err := r.dao.GetStockItem(standID, stockID)
 	if err != nil {
 		return domain.Stock{}, fmt.Errorf("r.dao.GetStockItem -> %w", err)
 	}
@@ -482,8 +526,8 @@ func (r *KermesseRepository) UpdateStandTokensSpent(ctx context.Context, standID
 	return nil
 }
 
-func (r *KermesseRepository) UpdateStockQuantity(ctx context.Context, standID uint, itemName string, quantityChange int) error {
-	stock, err := r.GetStockItem(standID, itemName)
+func (r *KermesseRepository) UpdateStockQuantity(ctx context.Context, standID uint, stockID uint, quantityChange int) error {
+	stock, err := r.GetStockItem(standID, stockID)
 	if err != nil {
 		return fmt.Errorf("r.GetStockItem -> %w", err)
 	}
@@ -503,7 +547,7 @@ func (r *KermesseRepository) UpdateStockQuantity(ctx context.Context, standID ui
 	return nil
 }
 
-func (r *KermesseRepository) GetChildrenTransactions(parentID uint, kermesseID uint) ([]domain.TokenTransaction, error) {
+func (r *KermesseRepository) GetChildrenTransactions(parentID uint) ([]domain.TokenTransaction, error) {
 	// First, get all children of the parent
 	childrenDAOs, err := r.dao.GetChildrenByParentID(parentID)
 	if err != nil {
@@ -521,7 +565,7 @@ func (r *KermesseRepository) GetChildrenTransactions(parentID uint, kermesseID u
 	}
 
 	// Fetch transactions for all children
-	transactionDAOs, err := r.dao.GetChildrenTransactions(childrenIDs, kermesseID)
+	transactionDAOs, err := r.dao.GetChildrenTransactions(childrenIDs)
 	if err != nil {
 		return nil, fmt.Errorf("r.dao.GetChildrenTransactions -> %w", err)
 	}

@@ -12,6 +12,13 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type UserWithDetails struct {
+	User
+	Tokens   int       `json:"tokens,omitempty"`
+	StandID  uint      `json:"stand_id,omitempty"`
+	Students []Student `json:"students,omitempty"`
+}
+
 type Student struct {
 	UserID   uint `gorm:"primaryKey"`
 	User     User `gorm:"foreignKey:UserID"`

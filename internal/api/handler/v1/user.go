@@ -16,7 +16,7 @@ import (
 )
 
 type UserService interface {
-	GetUser(ctx context.Context, id uint) (domain.User, error)
+	GetUser(ctx context.Context, id uint) (domain.UserWithDetails, error)
 	GetUserTokens(ctx context.Context, userID uint) (int, error)
 	GetStudentByUserID(ctx context.Context, userID uint) (domain.Student, error)
 	GetStandHolderByUserID(ctx context.Context, userID uint) (domain.StandHolder, error)
@@ -87,6 +87,39 @@ func (h *UserHandler) HandleGetUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, user)
 }
 
+// HandleGetMe godoc
+// @Summary      Get current user's information
+// @Tags         users
+// @Produce      json
+// @Success      200      {object}   domain.User
+// @Failure      401      {object}   response.Err
+// @Failure      500      {object}   response.Err
+// @Router       /me [get]
+// @Security     BearerAuth
+func (h *UserHandler) HandleGetMe(ctx *gin.Context) {
+	claims, err := jwthelper.RetrieveClaimsFromContext(ctx)
+	if err != nil {
+		response.RenderErr(ctx, response.ErrInternalServerError(err))
+		return
+	}
+
+	userID := claims.UserID
+
+	userWithDetails, err := h.svc.GetUser(ctx.Request.Context(), userID)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.RenderErr(ctx, response.ErrNotFound("user", "ID", userID))
+			return
+		}
+
+		err = fmt.Errorf("v1.HandleGetMe -> h.svc.GetUser -> %w", err)
+		response.RenderErr(ctx, response.ErrInternalServerError(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, userWithDetails)
+}
+
 func getUserFromContext(ctx *gin.Context, userService UserService) (domain.User, *response.Err) {
 	claims, err := jwthelper.RetrieveClaimsFromContext(ctx)
 	if err != nil {
@@ -101,5 +134,14 @@ func getUserFromContext(ctx *gin.Context, userService UserService) (domain.User,
 		return domain.User{}, response.ErrInternalServerError(fmt.Errorf("getUserFromContext -> GetUser -> %w", err))
 	}
 
-	return user, nil
+	retUser := domain.User{
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+
+	return retUser, nil
 }

@@ -17,7 +17,7 @@ import (
 
 type KermesseService interface {
 	IsParticipating(kermessID uint, userID uint) (bool, error)
-	GetKermesses(user domain.User) ([]domain.Kermesse, error)
+	GetKermesses() ([]domain.Kermesse, error)
 	CreateKermesse(ctx context.Context, kermesse domain.Kermesse, organizerID uint) (domain.Kermesse, error)
 	AddParticipantToKermesse(ctx context.Context, kermesseID, userID uint) error
 	CreateStand(ctx context.Context, stand domain.Stand, stock []domain.Stock, standHolderID uint) (domain.Stand, error)
@@ -25,23 +25,25 @@ type KermesseService interface {
 	ValidateTokenTransaction(transactionID uint, user domain.User) (domain.TokenTransaction, error)
 	CreateParentToChildTokenTransaction(ctx context.Context, transaction domain.TokenTransaction, user domain.User) (domain.TokenTransaction, error)
 	GetStandByID(standID uint) (domain.Stand, error)
-	PerformPurchase(ctx context.Context, userID, kermesseID, standID uint, itemName string, quantity int, totalCost int) (domain.TokenTransaction, error)
-	GetStockItem(standID uint, itemName string) (domain.Stock, error)
+	PerformPurchase(ctx context.Context, userID, kermesseID, standID uint, stockID uint, quantity int, totalCost int) (domain.TokenTransaction, error)
+	GetStockItem(standID uint, stockId uint) (domain.Stock, error)
 	GetTokenTransactionByID(transactionID uint) (domain.TokenTransaction, error)
 	IsStandHolderAssociatedWithStand(ctx context.Context, standHolderID, standID uint) (bool, error)
-	ApproveTransaction(ctx context.Context, transactionID uint, standHolderID uint, itemName string, quantity int) error
+	//ApproveTransaction(ctx context.Context, transactionID uint, standHolderID uint, itemName string, quantity int) error
 	RejectTransaction(ctx context.Context, transactionID uint, standHolderID uint) error
-	GetChildrenTransactions(ctx context.Context, userID uint, kermesseID uint) ([]domain.TokenTransaction, error)
+	GetChildrenTransactions(ctx context.Context, userID uint) ([]domain.TokenTransaction, error)
 	UpdateStock(ctx context.Context, req request.StockUpdateRequest, userID uint, standID uint) error
 	IsKermesseOrganizer(kermesseID, userID uint) (bool, error)
 	GetStandsByKermesseID(kermesseID uint) ([]domain.Stand, error)
 	IsStandHolder(userID, standID uint) (bool, error)
-	ProcessStripePayment(token string, amount int) (*stripe.Charge, error)
+	ProcessStripePayment(paymentMethodID string, amount int) (*stripe.PaymentIntent, error)
 	SaveChatMessage(message domain.ChatMessage) (domain.ChatMessage, error)
 	GetChatMessages(kermesseID, standID uint, limit, offset int) ([]domain.ChatMessage, error)
 	AttributePointsToStudent(ctx context.Context, kermesseID, standID, studentID uint, points int) (domain.PointAttributionResult, error)
 	//IsUserKermesseOrganizer(kermesseID, userID uint) (bool, error)
 	//IsUserStandHolder(standID, userID uint) (bool, error)
+	UpdateParentTokens(ctx context.Context, parentID uint, amount int) (domain.Parent, error)
+	CreateStock(ctx context.Context, stock domain.Stock, userID uint) (domain.Stock, error)
 }
 
 type KermesseHandler struct {
@@ -74,7 +76,7 @@ func (h *KermesseHandler) HandleGetKermesses(ctx *gin.Context) {
 		return
 	}
 
-	kermesses, err := h.svc.GetKermesses(user)
+	kermesses, err := h.svc.GetKermesses()
 	if err != nil {
 		if errors.Is(err, service.ErrKermesseNotFound) {
 			response.RenderErr(ctx, response.ErrNotFound("kermesse", "userID", user.ID))
@@ -84,6 +86,21 @@ func (h *KermesseHandler) HandleGetKermesses(ctx *gin.Context) {
 		err = fmt.Errorf("HandleGetKermesse -> h.svc.GetKermesses -> %w", err)
 		response.RenderErr(ctx, response.ErrInternalServerError(err))
 		return
+	}
+
+	fmt.Printf("kermesses: %v\n", kermesses)
+
+	if kermesses == nil {
+		kermesses = []domain.Kermesse{}
+	} else if len(kermesses) > 0 {
+		for i := range kermesses {
+			isParticipant, err := h.svc.IsParticipating(kermesses[i].ID, user.ID)
+			if err != nil {
+				response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to check user participation: %w", err)))
+				return
+			}
+			kermesses[i].IsParticipant = isParticipant
+		}
 	}
 
 	ctx.JSON(http.StatusOK, kermesses)
@@ -121,6 +138,8 @@ func (h *KermesseHandler) HandleCreateKermesse(ctx *gin.Context) {
 		response.RenderErr(ctx, response.ErrBadRequest(err))
 		return
 	}
+
+	fmt.Printf("input: %v\n", input)
 
 	if err := input.Validate(); err != nil {
 		response.RenderErr(ctx, response.ErrBadRequest(err))
@@ -336,12 +355,16 @@ func (h *KermesseHandler) HandleCreateStand(ctx *gin.Context) {
 		KermesseID:  uint(kermesseID),
 	}
 
-	stock := make([]domain.Stock, len(req.Stock))
-	for i, s := range req.Stock {
-		stock[i] = domain.Stock{
-			ItemName:  s.ItemName,
-			Quantity:  s.Quantity,
-			TokenCost: s.TokenCost,
+	var stock []domain.Stock
+
+	if req.Stock != nil {
+		stock = make([]domain.Stock, len(req.Stock))
+		for i, s := range req.Stock {
+			stock[i] = domain.Stock{
+				ItemName:  s.ItemName,
+				Quantity:  s.Quantity,
+				TokenCost: s.TokenCost,
+			}
 		}
 	}
 
@@ -412,9 +435,9 @@ func (h *KermesseHandler) HandleTokenPurchase(ctx *gin.Context) {
 		return
 	}
 
-	charge, err := h.svc.ProcessStripePayment(purchaseRequest.StripeToken, purchaseRequest.Amount)
+	paymentIntent, err := h.svc.ProcessStripePayment(purchaseRequest.PaymentMethodID, purchaseRequest.Amount)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process payment"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process payment: " + err.Error()})
 		return
 	}
 
@@ -437,10 +460,17 @@ func (h *KermesseHandler) HandleTokenPurchase(ctx *gin.Context) {
 		return
 	}
 
+	updatedParent, err := h.svc.UpdateParentTokens(ctx, user.ID, purchaseRequest.Amount)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update parent's token balance"})
+		return
+	}
+
 	ctx.JSON(http.StatusCreated, gin.H{
-		"message":     "Token purchase purchaseRequest submitted successfully",
-		"transaction": createdTransaction,
-		"charge_id":   charge.ID,
+		"message":               "Token purchase request submitted successfully",
+		"transaction":           createdTransaction,
+		"payment_intent_id":     paymentIntent.ID,
+		"updated_token_balance": updatedParent.Tokens,
 	})
 }
 
@@ -450,21 +480,13 @@ func (h *KermesseHandler) HandleTokenPurchase(ctx *gin.Context) {
 // @Tags kermesses
 // @Accept json
 // @Produce json
-// @Param kermesseID path int true "Kermesse ID"
 // @Param sendTokensRequest body request.SendTokensRequest true "Send tokens request"
 // @Success 201
 // @Failure 400 {object} response.Err
 // @Failure 403 {object} response.Err
 // @Failure 500 {object} response.Err
-// @Router /kermesses/{kermesseID}/token/transferToChild [post]
+// @Router /token/transferToChild [post]
 func (h *KermesseHandler) HandleParentSendTokensToChild(ctx *gin.Context) {
-	// Get kermesseID from URL params
-	kermesseID, err := strconv.ParseUint(ctx.Param("kermesseID"), 10, 32)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid kermesse ID")))
-
-		return
-	}
 
 	user, respErr := getUserFromContext(ctx, h.uSvc)
 	if respErr != nil {
@@ -476,16 +498,6 @@ func (h *KermesseHandler) HandleParentSendTokensToChild(ctx *gin.Context) {
 		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not authorized to send tokens", user.ID)))
 		return
 	}
-
-	//// Parse request body
-	//var sendTokensRequest struct {
-	//	StudentID uint `json:"student_id" binding:"required"`
-	//	Amount    int  `json:"amount" binding:"required,min=1"`
-	//}
-	//if err := ctx.ShouldBindJSON(&sendTokensRequest); err != nil {
-	//	response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid request body: %w", err)))
-	//	return
-	//}
 
 	var sendTokensRequest request.SendTokensRequest
 	if err := ctx.ShouldBindJSON(&sendTokensRequest); err != nil {
@@ -500,14 +512,13 @@ func (h *KermesseHandler) HandleParentSendTokensToChild(ctx *gin.Context) {
 
 	// Create token transaction
 	transaction := domain.TokenTransaction{
-		KermesseID: uint(kermesseID),
-		FromID:     user.ID,
-		FromType:   "parent",
-		ToID:       sendTokensRequest.StudentID,
-		ToType:     "student",
-		Amount:     sendTokensRequest.Amount,
-		Type:       domain.TokenDistribution,
-		Status:     "Pending",
+		FromID:   user.ID,
+		FromType: "parent",
+		ToID:     sendTokensRequest.StudentID,
+		ToType:   "student",
+		Amount:   sendTokensRequest.Amount,
+		Type:     domain.TokenDistribution,
+		Status:   "Pending",
 	}
 
 	// Submit token transfer request
@@ -518,8 +529,6 @@ func (h *KermesseHandler) HandleParentSendTokensToChild(ctx *gin.Context) {
 			response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("insufficient tokens")))
 		case errors.Is(err, service.ErrNotParentOfStudent):
 			response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not the parent of student %v", user.ID, sendTokensRequest.StudentID)))
-		case errors.Is(err, service.ErrUserNotParticipant):
-			response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not participating in kermesse %v", user.ID, kermesseID)))
 		default:
 			response.RenderErr(ctx, response.ErrInternalServerError(err))
 		}
@@ -578,7 +587,7 @@ func (h *KermesseHandler) HandleStandPurchase(ctx *gin.Context) {
 	}
 
 	// Check if user is a participant of the kermesse
-	isParticipant, err := h.svc.IsParticipating(user.ID, uint(kermesseID))
+	isParticipant, err := h.svc.IsParticipating(uint(kermesseID), user.ID)
 	if err != nil {
 		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to check user participation: %w", err)))
 		return
@@ -596,9 +605,9 @@ func (h *KermesseHandler) HandleStandPurchase(ctx *gin.Context) {
 	}
 
 	// Get stock item
-	stockItem, err := h.svc.GetStockItem(uint(standID), purchaseRequest.ItemName)
+	stockItem, err := h.svc.GetStockItem(uint(standID), purchaseRequest.StockID)
 	if err != nil {
-		response.RenderErr(ctx, response.ErrNotFound("item", "name", purchaseRequest.ItemName))
+		response.RenderErr(ctx, response.ErrNotFound("Stock", "ID", purchaseRequest.StockID))
 		return
 	}
 
@@ -622,7 +631,7 @@ func (h *KermesseHandler) HandleStandPurchase(ctx *gin.Context) {
 	}
 
 	// Perform the purchase
-	purchase, err := h.svc.PerformPurchase(ctx, user.ID, uint(kermesseID), uint(standID), purchaseRequest.ItemName, purchaseRequest.Quantity, totalCost)
+	purchase, err := h.svc.PerformPurchase(ctx, user.ID, uint(kermesseID), uint(standID), purchaseRequest.StockID, purchaseRequest.Quantity, totalCost)
 	if err != nil {
 		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to perform purchase: %w", err)))
 		return
@@ -635,116 +644,116 @@ func (h *KermesseHandler) HandleStandPurchase(ctx *gin.Context) {
 	})
 }
 
-// HandleValidatePurchase godoc
-// @Summary Validate a purchase transaction
-// @Description Allows a stand holder to validate a purchase transaction
-// @Tags kermesses
-// @Accept json
-// @Produce json
-// @Param kermesseID path int true "Kermesse ID"
-// @Param transactionID path int true "Transaction ID"
-// @Param approvalRequest body request.StandTransactionApprovalRequest true "Approval request"
-// @Success 200
-// @Failure 400 {object} response.Err
-// @Failure 403 {object} response.Err
-// @Failure 404 {object} response.Err
-// @Failure 500 {object} response.Err
-// @Router /kermesses/{kermesseID}/transaction/{transactionID} [post]
-func (h *KermesseHandler) HandleValidatePurchase(ctx *gin.Context) {
-	kermesseID, err := strconv.ParseUint(ctx.Param("kermesseID"), 10, 32)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid kermesse ID")))
-		return
-	}
-
-	transactionID, err := strconv.ParseUint(ctx.Param("transactionID"), 10, 32)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid transaction ID")))
-		return
-	}
-
-	var approvalRequest request.StandTransactionApprovalRequest
-	if err := ctx.ShouldBindJSON(&approvalRequest); err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid request body: %w", err)))
-		return
-	}
-
-	if err := approvalRequest.Validate(); err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid request: %w", err)))
-		return
-	}
-
-	user, respErr := getUserFromContext(ctx, h.uSvc)
-	if respErr != nil {
-		response.RenderErr(ctx, respErr)
-		return
-	}
-
-	// Check if user is a participant of the kermesse
-	isParticipant, err := h.svc.IsParticipating(user.ID, uint(kermesseID))
-	if err != nil {
-		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to check user participation: %w", err)))
-		return
-	}
-	if !isParticipant {
-		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user is not a participant of this kermesse")))
-		return
-	}
-
-	if user.Role != "stand_holder" {
-		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not authorized to validate purchases", user.ID)))
-		return
-	}
-
-	standHolder, err := h.uSvc.GetStandHolderByUserID(ctx.Request.Context(), user.ID)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to get standholder: %w", err)))
-		return
-	}
-
-	// Fetch the transaction
-	transaction, err := h.svc.GetTokenTransactionByID(uint(transactionID))
-	if err != nil {
-		response.RenderErr(ctx, response.ErrNotFound("transaction", "ID", transactionID))
-		return
-	}
-
-	// Check if the transaction is pending
-	if transaction.Status != "Pending" {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("transaction is not in a pending state")))
-		return
-	}
-
-	// Verify that the standHolder is associated with the stand
-	isAssociated, err := h.svc.IsStandHolderAssociatedWithStand(ctx, standHolder.UserID, *transaction.StandID)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to check standholder association: %w", err)))
-		return
-	}
-	if !isAssociated {
-		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("standholder is not associated with this stand")))
-		return
-	}
-
-	var actionMsg string
-
-	if approvalRequest.Approved {
-		err = h.svc.ApproveTransaction(ctx, uint(transactionID), standHolder.UserID, approvalRequest.ItemName, approvalRequest.Quantity)
-		actionMsg = "approved"
-	} else {
-		err = h.svc.RejectTransaction(ctx, uint(transactionID), standHolder.UserID)
-		actionMsg = "rejected"
-	}
-
-	if err != nil {
-		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to %s transaction: %w", actionMsg, err)))
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Purchase %s successfully", actionMsg),
-	})
-}
+//// HandleValidatePurchase godoc
+//// @Summary Validate a purchase transaction
+//// @Description Allows a stand holder to validate a purchase transaction
+//// @Tags kermesses
+//// @Accept json
+//// @Produce json
+//// @Param kermesseID path int true "Kermesse ID"
+//// @Param transactionID path int true "Transaction ID"
+//// @Param approvalRequest body request.StandTransactionApprovalRequest true "Approval request"
+//// @Success 200
+//// @Failure 400 {object} response.Err
+//// @Failure 403 {object} response.Err
+//// @Failure 404 {object} response.Err
+//// @Failure 500 {object} response.Err
+//// @Router /kermesses/{kermesseID}/transaction/{transactionID} [post]
+//func (h *KermesseHandler) HandleValidatePurchase(ctx *gin.Context) {
+//	kermesseID, err := strconv.ParseUint(ctx.Param("kermesseID"), 10, 32)
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid kermesse ID")))
+//		return
+//	}
+//
+//	transactionID, err := strconv.ParseUint(ctx.Param("transactionID"), 10, 32)
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid transaction ID")))
+//		return
+//	}
+//
+//	var approvalRequest request.StandTransactionApprovalRequest
+//	if err := ctx.ShouldBindJSON(&approvalRequest); err != nil {
+//		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid request body: %w", err)))
+//		return
+//	}
+//
+//	if err := approvalRequest.Validate(); err != nil {
+//		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid request: %w", err)))
+//		return
+//	}
+//
+//	user, respErr := getUserFromContext(ctx, h.uSvc)
+//	if respErr != nil {
+//		response.RenderErr(ctx, respErr)
+//		return
+//	}
+//
+//	// Check if user is a participant of the kermesse
+//	isParticipant, err := h.svc.IsParticipating(user.ID, uint(kermesseID))
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to check user participation: %w", err)))
+//		return
+//	}
+//	if !isParticipant {
+//		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user is not a participant of this kermesse")))
+//		return
+//	}
+//
+//	if user.Role != "stand_holder" {
+//		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("user %v is not authorized to validate purchases", user.ID)))
+//		return
+//	}
+//
+//	standHolder, err := h.uSvc.GetStandHolderByUserID(ctx.Request.Context(), user.ID)
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to get standholder: %w", err)))
+//		return
+//	}
+//
+//	// Fetch the transaction
+//	transaction, err := h.svc.GetTokenTransactionByID(uint(transactionID))
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrNotFound("transaction", "ID", transactionID))
+//		return
+//	}
+//
+//	// Check if the transaction is pending
+//	if transaction.Status != "Pending" {
+//		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("transaction is not in a pending state")))
+//		return
+//	}
+//
+//	// Verify that the standHolder is associated with the stand
+//	isAssociated, err := h.svc.IsStandHolderAssociatedWithStand(ctx, standHolder.UserID, *transaction.StandID)
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to check standholder association: %w", err)))
+//		return
+//	}
+//	if !isAssociated {
+//		response.RenderErr(ctx, response.ErrPermissionDenied(fmt.Errorf("standholder is not associated with this stand")))
+//		return
+//	}
+//
+//	var actionMsg string
+//
+//	if approvalRequest.Approved {
+//		err = h.svc.ApproveTransaction(ctx, uint(transactionID), standHolder.UserID, approvalRequest.ItemName, approvalRequest.Quantity)
+//		actionMsg = "approved"
+//	} else {
+//		err = h.svc.RejectTransaction(ctx, uint(transactionID), standHolder.UserID)
+//		actionMsg = "rejected"
+//	}
+//
+//	if err != nil {
+//		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to %s transaction: %w", actionMsg, err)))
+//		return
+//	}
+//
+//	ctx.JSON(http.StatusOK, gin.H{
+//		"message": fmt.Sprintf("Purchase %s successfully", actionMsg),
+//	})
+//}
 
 // HandleGetChildrenTransactions godoc
 // @Summary      Get children's transactions for a kermesse
@@ -757,15 +766,9 @@ func (h *KermesseHandler) HandleValidatePurchase(ctx *gin.Context) {
 // @Failure      401  {object}  response.Err
 // @Failure      403  {object}  response.Err
 // @Failure      500  {object}  response.Err
-// @Router       /kermesses/{kermesseID}/children_transactions [get]
+// @Router       /children_transactions [get]
 // @Security BearerAuth
 func (h *KermesseHandler) HandleGetChildrenTransactions(ctx *gin.Context) {
-	kermesseID, err := strconv.ParseUint(ctx.Param("kermesseID"), 10, 32)
-	if err != nil {
-		response.RenderErr(ctx, response.ErrBadRequest(fmt.Errorf("invalid kermesse ID")))
-		return
-	}
-
 	user, respErr := getUserFromContext(ctx, h.uSvc)
 	if respErr != nil {
 		response.RenderErr(ctx, respErr)
@@ -777,7 +780,7 @@ func (h *KermesseHandler) HandleGetChildrenTransactions(ctx *gin.Context) {
 		return
 	}
 
-	transactions, err := h.svc.GetChildrenTransactions(ctx.Request.Context(), user.ID, uint(kermesseID))
+	transactions, err := h.svc.GetChildrenTransactions(ctx.Request.Context(), user.ID)
 	if err != nil {
 		response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to get children transactions: %w", err)))
 		return
@@ -834,6 +837,63 @@ func (h *KermesseHandler) HandleUpdateStock(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Stock updated successfully"})
+}
+
+// HandleCreateStock godoc
+// @Summary Create stock for a stand
+// @Description Allows creating new stock items for a stand
+// @Tags kermesses
+// @Accept json
+// @Produce json
+// @Param standID path int true "Stand ID"
+// @Param stockCreateRequest body request.StockCreateRequest true "Stock creation request"
+// @Success 201 {object} domain.Stock
+// @Failure 400 {object} response.Err
+// @Failure 403 {object} response.Err
+// @Failure 500 {object} response.Err
+// @Router /kermesses/{kermesseID}/stand/{standID}/stock [post]
+func (h *KermesseHandler) HandleCreateStock(ctx *gin.Context) {
+	var req request.StockCreateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.RenderErr(ctx, response.ErrBadRequest(err))
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		response.RenderErr(ctx, response.ErrBadRequest(err))
+		return
+	}
+
+	standID, err := strconv.ParseUint(ctx.Param("standID"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid stand ID"})
+		return
+	}
+
+	user, respErr := getUserFromContext(ctx, h.uSvc)
+	if respErr != nil {
+		response.RenderErr(ctx, respErr)
+		return
+	}
+
+	stock := domain.Stock{
+		StandID:   uint(standID),
+		ItemName:  req.ItemName,
+		Quantity:  req.Quantity,
+		TokenCost: req.TokenCost,
+	}
+
+	createdStock, err := h.svc.CreateStock(ctx.Request.Context(), stock, user.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrUnauthorizedOrganizer) {
+			response.RenderErr(ctx, response.ErrPermissionDenied(err))
+		} else {
+			response.RenderErr(ctx, response.ErrInternalServerError(fmt.Errorf("failed to create stock: %w", err)))
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, createdStock)
 }
 
 // HandleAttributePointsToStudent godoc

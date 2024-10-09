@@ -27,6 +27,9 @@ type UserDAO interface {
 	FindParentByUserID(ctx context.Context, id uint) (dao.Parent, error)
 	FindStandHolderByUserID(ctx context.Context, id uint) (dao.StandHolder, error)
 	UpdateParent(ctx context.Context, user dao.User, parent dao.Parent) (dao.Parent, error)
+	FindStudentOnlyByUserID(ctx context.Context, userID uint) (dao.Student, error)
+	FindParentOnlyByUserID(ctx context.Context, userID uint) (dao.Parent, error)
+	FindStudentsByParentID(ctx context.Context, parentID uint) ([]dao.Student, error)
 }
 
 type UserRepository struct {
@@ -59,6 +62,45 @@ func (r *UserRepository) FindByID(ctx context.Context, id uint) (domain.User, er
 
 	return r.daoToDomain(found), nil
 }
+func (r *UserRepository) FindByIDWithDetails(ctx context.Context, id uint) (domain.UserWithDetails, error) {
+	user, err := r.dao.FindByID(ctx, id)
+	if err != nil {
+		return domain.UserWithDetails{}, fmt.Errorf("r.dao.FindByID -> %w", err)
+	}
+
+	userWithDetails := domain.UserWithDetails{
+		User: r.daoToDomain(user),
+	}
+
+	switch user.Role {
+	case "student":
+		student, err := r.dao.FindStudentByUserID(ctx, id)
+		if err != nil {
+			return domain.UserWithDetails{}, fmt.Errorf("r.dao.FindStudentByUserID -> %w", err)
+		}
+		userWithDetails.Tokens = student.Tokens
+	case "parent":
+		parent, err := r.dao.FindParentByUserID(ctx, id)
+		if err != nil {
+			return domain.UserWithDetails{}, fmt.Errorf("r.dao.FindParentByUserID -> %w", err)
+		}
+		userWithDetails.Tokens = parent.Tokens
+
+		students, err := r.dao.FindStudentsByParentID(ctx, id)
+		if err != nil {
+			return domain.UserWithDetails{}, fmt.Errorf("r.dao.FindStudentsByParentID -> %w", err)
+		}
+		userWithDetails.Students = r.studentsDaoToDomain(students)
+	case "stand_holder":
+		standHolder, err := r.dao.FindStandHolderByUserID(ctx, id)
+		if err != nil {
+			return domain.UserWithDetails{}, fmt.Errorf("r.dao.FindStandHolderByUserID -> %w", err)
+		}
+		userWithDetails.StandID = standHolder.StandID
+	}
+
+	return userWithDetails, nil
+}
 
 func (r *UserRepository) FindStudentByUserID(ctx context.Context, id uint) (domain.Student, error) {
 	found, err := r.dao.FindStudentByUserID(ctx, id)
@@ -76,6 +118,24 @@ func (r *UserRepository) FindParentByUserID(ctx context.Context, id uint) (domai
 	}
 
 	return r.parentDaoToDomain(found), nil
+}
+
+func (r *UserRepository) UpdateParent(ctx context.Context, parent domain.Parent) (domain.Parent, error) {
+	parentDAO := r.parentDomainToDao(parent)
+
+	userDao := dao.User{
+		ID:       parent.User.ID,
+		Email:    parent.User.Email,
+		Name:     parent.User.Name,
+		Role:     parent.User.Role,
+		Password: parent.User.Password,
+	}
+
+	updated, err := r.dao.UpdateParent(ctx, userDao, parentDAO)
+	if err != nil {
+		return domain.Parent{}, fmt.Errorf("r.dao.UpdateParent -> %w", err)
+	}
+	return r.parentDaoToDomain(updated), nil
 }
 
 func (r *UserRepository) FindStandHolderByUserID(ctx context.Context, id uint) (domain.StandHolder, error) {
@@ -118,6 +178,22 @@ func (r *UserRepository) daoToDomain(u dao.User) domain.User {
 	}
 }
 
+func (r *UserRepository) daosToDomain(us []dao.User) []domain.User {
+	users := make([]domain.User, len(us))
+	for i, u := range us {
+		users[i] = r.daoToDomain(u)
+	}
+
+	return users
+}
+
+func (r *UserRepository) parentDomainToDao(p domain.Parent) dao.Parent {
+	return dao.Parent{
+		UserID: p.UserID,
+		Tokens: p.Tokens,
+	}
+}
+
 func (r *UserRepository) studentDaoToDomain(s dao.Student) domain.Student {
 	return domain.Student{
 		User:     r.daoToDomain(s.User),
@@ -127,6 +203,15 @@ func (r *UserRepository) studentDaoToDomain(s dao.Student) domain.Student {
 		ParentID: s.ParentID,
 		IsActive: s.IsActive,
 	}
+}
+
+func (r *UserRepository) studentsDaoToDomain(ss []dao.Student) []domain.Student {
+	students := make([]domain.Student, len(ss))
+	for i, s := range ss {
+		students[i] = r.studentDaoToDomain(s)
+	}
+
+	return students
 }
 
 func (r *UserRepository) parentDaoToDomain(p dao.Parent) domain.Parent {
@@ -139,8 +224,9 @@ func (r *UserRepository) parentDaoToDomain(p dao.Parent) domain.Parent {
 
 func (r *UserRepository) standHolderDaoToDomain(s dao.StandHolder) domain.StandHolder {
 	return domain.StandHolder{
-		User:   r.daoToDomain(s.User),
-		UserID: s.UserID,
+		User:    r.daoToDomain(s.User),
+		UserID:  s.UserID,
+		StandID: s.StandID,
 		Stand: domain.Stand{
 			ID:          s.Stand.ID,
 			Name:        s.Stand.Name,
@@ -155,6 +241,15 @@ func (r *UserRepository) organizerDaoToDomain(o dao.Organizer) domain.Organizer 
 		User:   r.daoToDomain(o.User),
 		UserID: o.UserID,
 	}
+}
+
+func (r *UserRepository) organizersDaoToDomain(os []dao.Organizer) []domain.Organizer {
+	organizers := make([]domain.Organizer, len(os))
+	for i, o := range os {
+		organizers[i] = r.organizerDaoToDomain(o)
+	}
+
+	return organizers
 }
 
 func (r *UserRepository) CreateStudent(ctx context.Context, student domain.Student) (domain.Student, error) {
